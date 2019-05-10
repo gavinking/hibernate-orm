@@ -208,4 +208,24 @@ public class SQLServerDialect extends AbstractTransactSQLDialect {
 	public IdentityColumnSupport getIdentityColumnSupport() {
 		return new SQLServerIdentityColumnSupport();
 	}
+
+	@Override
+	public String translateDatetimeFormat(String format) {
+		return new Replacer( format, "'", "\"" )
+				.replace("G", "g")
+				.replace("GG", "gg")
+
+				.replace("EEEE", "dddd")
+				.replace("EEE", "ddd")
+
+				.replace("aa", "tt")
+				.replace("a", "tt")
+
+				.replace("S", "F")
+
+				.replace("z", "K")
+				.replace("Z", "zz00")
+				.replace("X", "zzz")
+				.result();
+	}
 }
