@@ -842,8 +842,9 @@ secondsField
 	;
 
 timeZoneField
-	: TIMEZONE_HOUR
-	| TIMEZONE_MINUTE
+	: TIMEZONE HOUR
+	| TIMEZONE MINUTE
+	| (TIMEZONE)? OFFSET
 	;
 
 positionFunction
