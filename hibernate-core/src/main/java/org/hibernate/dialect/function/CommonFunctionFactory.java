@@ -980,6 +980,18 @@ public class CommonFunctionFactory {
 	}
 
 	/**
+	 * SQL Server-style
+	 *
+	 * @see org.hibernate.dialect.SQLServerDialect#datetimeFormat
+	 */
+	public static final void formatdatetime_format(QueryEngine queryEngine) {
+		queryEngine.getSqmFunctionRegistry().namedTemplateBuilder("formatdatetime", "format")
+				.setInvariantType( StandardSpiBasicTypes.STRING )
+				.setExactArgumentCount(2)
+				.register();
+	}
+
+	/**
 	 * HANA's name for to_char() is still Oracle-style
 	 *
 	 *  @see org.hibernate.dialect.Oracle8iDialect#datetimeFormat
