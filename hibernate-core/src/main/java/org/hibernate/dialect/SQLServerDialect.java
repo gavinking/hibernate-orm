@@ -55,6 +55,7 @@ public class SQLServerDialect extends AbstractTransactSQLDialect {
 
 		//note: this function was introduced in SQL Server 2012
 		CommonFunctionFactory.formatdatetime_format( queryEngine );
+		CommonFunctionFactory.formatnumber_format( queryEngine );
 
 		queryEngine.getSqmFunctionRegistry().register( "trim", new TransactSQLTrimEmulation() );
 	}
@@ -216,6 +217,11 @@ public class SQLServerDialect extends AbstractTransactSQLDialect {
 	@Override
 	public String translateDatetimeFormat(String format) {
 		return datetimeFormat(format).result();
+	}
+
+	@Override
+	public String translateDecimalFormat(String format) {
+		return format;
 	}
 
 	public static Replacer datetimeFormat(String format) {

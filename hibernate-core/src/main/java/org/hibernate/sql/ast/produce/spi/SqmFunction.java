@@ -8,10 +8,13 @@ package org.hibernate.sql.ast.produce.spi;
 
 import org.hibernate.query.criteria.JpaFunction;
 import org.hibernate.query.sqm.consume.spi.SemanticQueryWalker;
+import org.hibernate.query.sqm.tree.SqmTypedNode;
 import org.hibernate.query.sqm.tree.expression.SqmExpression;
 import org.hibernate.sql.ast.produce.sqm.spi.SqmToSqlAstConverter;
 import org.hibernate.sql.ast.tree.expression.Expression;
 import org.hibernate.sql.results.spi.DomainResultProducer;
+
+import java.util.List;
 
 /**
  * Contract for functions impls that would like to control the
@@ -33,6 +36,8 @@ public interface SqmFunction<T> extends SqmExpression<T>, JpaFunction<T> {
 	 * contract
 	 */
 	Expression convertToSqlAst(SqmToSqlAstConverter walker);
+
+	List<SqmTypedNode<?>> getArguments();
 
 	@Override
 	default <X> X accept(SemanticQueryWalker<X> walker) {

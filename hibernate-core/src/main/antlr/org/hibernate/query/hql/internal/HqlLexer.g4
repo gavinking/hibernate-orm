@@ -138,6 +138,7 @@ CURRENT_TIMESTAMP	: [cC] [uU] [rR] [rR] [eE] [nN] [tT] '_' [tT] [iI] [mM] [eE] [
 CROSS				: [cC] [rR] [oO] [sS] [sS];
 DAY					: [dD] [aA] [yY];
 DATE				: [dD] [aA] [tT] [eE];
+DECIMAL				: [dD] [eE] [cC] [iI] [mM] [aA] [lL];
 DELETE				: [dD] [eE] [lL] [eE] [tT] [eE];
 DESC				: [dD] [eE] [sS] [cC];
 DIFF				: [dD] [iI] [fF] [fF];

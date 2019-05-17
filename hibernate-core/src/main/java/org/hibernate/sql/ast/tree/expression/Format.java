@@ -6,6 +6,7 @@
  */
 package org.hibernate.sql.ast.tree.expression;
 
+import org.hibernate.dialect.Dialect;
 import org.hibernate.sql.SqlExpressableType;
 import org.hibernate.sql.ast.consume.spi.SqlAstWalker;
 import org.hibernate.sql.ast.produce.spi.SqlExpressable;
@@ -14,7 +15,7 @@ import org.hibernate.sql.ast.tree.SqlAstNode;
 /**
  * @author Gavin King
  */
-public class Format implements SqlExpressable, SqlAstNode {
+public abstract class Format implements SqlExpressable, SqlAstNode {
 	private String format;
 	private SqlExpressableType type;
 
@@ -36,4 +37,8 @@ public class Format implements SqlExpressable, SqlAstNode {
 	public void accept(SqlAstWalker walker) {
 		walker.visitFormat(this);
 	}
+
+	public abstract String translate(Dialect dialect);
+
 }
+

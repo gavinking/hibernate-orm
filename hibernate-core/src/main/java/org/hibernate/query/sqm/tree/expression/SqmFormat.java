@@ -14,11 +14,19 @@ import org.hibernate.sql.ast.produce.metamodel.spi.BasicValuedExpressableType;
  * @author Gavin King
  */
 public class SqmFormat extends SqmLiteral<String> {
+	private String formatType;
+
 	public SqmFormat(
+			String formatType,
 			String value,
 			BasicValuedExpressableType<String> inherentType,
 			NodeBuilder nodeBuilder) {
 		super(value, inherentType, nodeBuilder);
+		this.formatType = formatType;
+	}
+
+	public boolean isDecimal() {
+		return formatType.equals("decimal");
 	}
 
 	@Override

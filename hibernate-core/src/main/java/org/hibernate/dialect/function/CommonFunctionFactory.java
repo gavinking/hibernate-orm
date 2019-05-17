@@ -947,7 +947,7 @@ public class CommonFunctionFactory {
 	/**
 	 * H2-style (uses Java's SimpleDateFormat directly so no need to translate format)
 	 */
-	public static final void formatdatetime(QueryEngine queryEngine) {
+	public static void formatdatetime(QueryEngine queryEngine) {
 		queryEngine.getSqmFunctionRegistry().namedTemplateBuilder("formatdatetime")
 				.setInvariantType( StandardSpiBasicTypes.STRING )
 				.setExactArgumentCount(2)
@@ -960,7 +960,7 @@ public class CommonFunctionFactory {
 	 * @see org.hibernate.dialect.Oracle8iDialect#datetimeFormat
 	 * @see org.hibernate.dialect.InformixDialect#datetimeFormat
 	 */
-	public static final void formatdatetime_toChar(QueryEngine queryEngine) {
+	public static void formatdatetime_toChar(QueryEngine queryEngine) {
 		queryEngine.getSqmFunctionRegistry().namedTemplateBuilder("formatdatetime", "to_char")
 				.setInvariantType( StandardSpiBasicTypes.STRING )
 				.setExactArgumentCount(2)
@@ -972,7 +972,7 @@ public class CommonFunctionFactory {
 	 *
 	 * @see org.hibernate.dialect.MySQLDialect#datetimeFormat
 	 */
-	public static final void formatdatetime_dateFormat(QueryEngine queryEngine) {
+	public static void formatdatetime_dateFormat(QueryEngine queryEngine) {
 		queryEngine.getSqmFunctionRegistry().namedTemplateBuilder("formatdatetime", "date_format")
 				.setInvariantType( StandardSpiBasicTypes.STRING )
 				.setExactArgumentCount(2)
@@ -984,7 +984,7 @@ public class CommonFunctionFactory {
 	 *
 	 * @see org.hibernate.dialect.SQLServerDialect#datetimeFormat
 	 */
-	public static final void formatdatetime_format(QueryEngine queryEngine) {
+	public static void formatdatetime_format(QueryEngine queryEngine) {
 		queryEngine.getSqmFunctionRegistry().namedTemplateBuilder("formatdatetime", "format")
 				.setInvariantType( StandardSpiBasicTypes.STRING )
 				.setExactArgumentCount(2)
@@ -996,8 +996,42 @@ public class CommonFunctionFactory {
 	 *
 	 *  @see org.hibernate.dialect.Oracle8iDialect#datetimeFormat
 	 */
-	public static final void formatdatetime_toVarchar(QueryEngine queryEngine) {
+	public static void formatdatetime_toVarchar(QueryEngine queryEngine) {
 		queryEngine.getSqmFunctionRegistry().namedTemplateBuilder("formatdatetime", "to_varchar")
+				.setInvariantType( StandardSpiBasicTypes.STRING )
+				.setExactArgumentCount(2)
+				.register();
+	}
+
+	/**
+	 * Usually Oracle-style
+	 *
+	 * @see org.hibernate.dialect.Oracle8iDialect#numberFormat
+	 */
+	public static void formatnumber_toChar(QueryEngine queryEngine) {
+		queryEngine.getSqmFunctionRegistry().namedTemplateBuilder("formatnumber", "to_char")
+				.setInvariantType( StandardSpiBasicTypes.STRING )
+				.setExactArgumentCount(2)
+				.register();
+	}
+
+	/**
+	 * HANA's name for to_char() is still Oracle-style
+	 *
+	 *  @see org.hibernate.dialect.Oracle8iDialect#numberFormat
+	 */
+	public static void formatnumber_toVarchar(QueryEngine queryEngine) {
+		queryEngine.getSqmFunctionRegistry().namedTemplateBuilder("formatnumber", "to_varchar")
+				.setInvariantType( StandardSpiBasicTypes.STRING )
+				.setExactArgumentCount(2)
+				.register();
+	}
+
+	/**
+	 * SQL Server-style (close to Java)
+	 */
+	public static void formatnumber_format(QueryEngine queryEngine) {
+		queryEngine.getSqmFunctionRegistry().namedTemplateBuilder("formatnumber", "format")
 				.setInvariantType( StandardSpiBasicTypes.STRING )
 				.setExactArgumentCount(2)
 				.register();

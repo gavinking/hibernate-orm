@@ -10,6 +10,7 @@ import java.sql.CallableStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 
 import org.hibernate.JDBCException;
@@ -583,6 +584,12 @@ public class DB2Dialect extends Dialect {
 	@Override
 	public boolean supportsPartitionBy() {
 		return true;
+	}
+
+	@Override
+	public String translateDecimalFormat(String format) {
+		return format.replace("#", "9")
+				.replace("\u00A4", DecimalFormatSymbols.getInstance().getCurrencySymbol());
 	}
 
 	@Override

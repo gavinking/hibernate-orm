@@ -800,7 +800,7 @@ formatFunction
 	;
 
 format
-	: STRING_LITERAL
+	: (DECIMAL | DATE | TIME | TIMESTAMP)? STRING_LITERAL
 	;
 
 diffFunction

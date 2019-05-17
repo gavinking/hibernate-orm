@@ -11,6 +11,8 @@ import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -2166,7 +2168,7 @@ public class SemanticQueryBuilder extends HqlParserBaseVisitor implements SqmCre
 					asList(
 							expressionToExtract,
 							new SqmFormat(
-									"XXX",
+									"timestamp", "XXX",
 									resolveExpressableTypeBasic( String.class ),
 									creationContext.getNodeBuilder()
 							)
@@ -2186,8 +2188,32 @@ public class SemanticQueryBuilder extends HqlParserBaseVisitor implements SqmCre
 
 	@Override
 	public Object visitFormat(HqlParser.FormatContext ctx) {
+		String format = ctx.STRING_LITERAL().getText();
+
+		String type = "timestamp";
+		if ( ctx.TIME()!=null ) {
+			type = "time";
+		}
+		if ( ctx.DATE()!=null ) {
+			type = "date";
+		}
+		if ( ctx.DECIMAL()!=null ) {
+			type = "decimal";
+		}
+
+		switch (type) {
+			case "decimal":
+				new DecimalFormat(format);
+				break;
+			default:
+				new SimpleDateFormat(format);
+				//TODO: check that it's really a
+				//      a date / time pattern
+		}
+
 		return new SqmFormat(
-				ctx.STRING_LITERAL().getText(),
+				type,
+				format,
 				resolveExpressableTypeBasic( String.class ),
 				creationContext.getNodeBuilder()
 		);
@@ -2197,15 +2223,10 @@ public class SemanticQueryBuilder extends HqlParserBaseVisitor implements SqmCre
 	public SqmExpression visitFormatFunction(HqlParser.FormatFunctionContext ctx) {
 
 		final SqmExpression<?> expressionToCast = (SqmExpression) ctx.expression().accept( this );
-		final SqmLiteral<?> format = (SqmLiteral) ctx.format().accept( this );
+		final SqmFormat format = (SqmFormat) ctx.format().accept( this );
 
-		//getSessionFactory().getTypeConfiguration().resolveCastTargetType( ctx.dataType().IDENTIFIER().getText() )
-
-//		if ( !AllowableFunctionReturnType.class.isInstance( castTargetExpression ) ) {
-//			throw new SqmProductionException( "Found cast target expression [%s] which is not allowed as a function return" );
-//		}
-
-		return getFunctionTemplate("formatdatetime").makeSqmFunctionExpression(
+		String function = format.isDecimal() ? "formatnumber" : "formatdatetime";
+		return getFunctionTemplate( function ).makeSqmFunctionExpression(
 				asList( expressionToCast, format ),
 				resolveExpressableTypeBasic( String.class ),
 				creationContext.getQueryEngine()

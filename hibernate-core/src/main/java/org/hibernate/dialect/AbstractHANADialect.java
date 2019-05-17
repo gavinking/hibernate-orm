@@ -301,6 +301,7 @@ public abstract class AbstractHANADialect extends Dialect {
 		CommonFunctionFactory.daysBetween( queryEngine );
 		CommonFunctionFactory.secondsBetween( queryEngine );
 		CommonFunctionFactory.formatdatetime_toVarchar( queryEngine );
+		CommonFunctionFactory.formatnumber_toVarchar( queryEngine );
 	}
 
 	@Override

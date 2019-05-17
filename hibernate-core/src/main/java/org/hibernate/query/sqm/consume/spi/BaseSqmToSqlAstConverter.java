@@ -103,6 +103,8 @@ import org.hibernate.sql.ast.tree.expression.BinaryArithmeticExpression;
 import org.hibernate.sql.ast.tree.expression.CaseSearchedExpression;
 import org.hibernate.sql.ast.tree.expression.CaseSimpleExpression;
 import org.hibernate.sql.ast.tree.expression.CastTarget;
+import org.hibernate.sql.ast.tree.expression.DatetimeFormat;
+import org.hibernate.sql.ast.tree.expression.DecimalFormat;
 import org.hibernate.sql.ast.tree.expression.Distinct;
 import org.hibernate.sql.ast.tree.expression.Expression;
 import org.hibernate.sql.ast.tree.expression.ExtractUnit;
@@ -694,7 +696,6 @@ public abstract class BaseSqmToSqlAstConverter
 		return consumeSqmParameter( expression );
 	}
 
-
 	@Override
 	public Object visitFunction(SqmFunction sqmFunction) {
 		shallownessStack.push( Shallowness.FUNCTION );
@@ -707,11 +708,16 @@ public abstract class BaseSqmToSqlAstConverter
 	}
 
 	@Override
-	public Object visitFormat(SqmFormat sqmFormat) {
-		return new Format(
-				sqmFormat.getLiteralValue(),
-				sqmFormat.getExpressableType().getSqlExpressableType()
-		);
+	public Format visitFormat(SqmFormat sqmFormat) {
+		return sqmFormat.isDecimal()
+				? new DecimalFormat(
+						sqmFormat.getLiteralValue(),
+						sqmFormat.getExpressableType().getSqlExpressableType()
+				)
+				: new DatetimeFormat(
+						sqmFormat.getLiteralValue(),
+						sqmFormat.getExpressableType().getSqlExpressableType()
+				);
 	}
 
 	@Override

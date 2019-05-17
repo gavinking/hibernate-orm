@@ -731,6 +731,18 @@ public class Oracle8iDialect extends Dialect {
 		return true;
 	}
 
+	public static String numberFormat(String format, boolean useFm) {
+		String fm = useFm ? "fm" : "";
+		return fm + format
+				.replace("'", "\"")
+				.replace("#", "9")
+				.replace(".", "D")
+				.replace(",", "G")
+				.replace("\u00A4", "L")
+				.replace("%", "V99%")
+				.replace("E0", "EEEE");
+	}
+
 	public static Replacer datetimeFormat(String format, boolean useFm) {
 		String fm = useFm ? "fm" : "";
 		return new Replacer( format, "'", "\"" )

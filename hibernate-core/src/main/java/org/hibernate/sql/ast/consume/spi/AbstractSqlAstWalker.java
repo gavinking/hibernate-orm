@@ -11,6 +11,7 @@ import java.util.List;
 
 import org.hibernate.NotYetImplementedFor6Exception;
 import org.hibernate.SortOrder;
+import org.hibernate.dialect.Dialect;
 import org.hibernate.engine.jdbc.spi.JdbcServices;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.internal.util.collections.Stack;
@@ -428,9 +429,9 @@ public abstract class AbstractSqlAstWalker
 
 	@Override
 	public void visitFormat(Format format) {
-		String dialectFormat = sessionFactory.getJdbcServices().getDialect().translateDatetimeFormat( format.getFormat() );
+		Dialect dialect = sessionFactory.getJdbcServices().getDialect();
 		appendSql("'");
-		appendSql(dialectFormat);
+		appendSql( format.translate( dialect ) );
 		appendSql("'");
 	}
 

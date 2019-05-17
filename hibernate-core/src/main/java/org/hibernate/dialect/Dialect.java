@@ -357,9 +357,10 @@ public abstract class Dialect implements ConversionContext {
 
 		CommonFunctionFactory.leastGreatest(queryEngine);
 
-		//datetime formatting function, Oracle-style to_char() on most databases
+		//formatting functions, Oracle-style to_char() on most databases
 
 		CommonFunctionFactory.formatdatetime_toChar(queryEngine);
+		CommonFunctionFactory.formatnumber_toChar(queryEngine);
 
 	}
 
@@ -3279,6 +3280,13 @@ public abstract class Dialect implements ConversionContext {
 		//copied from Oracle's to_char() function,
 		//with some minor variation
 		return Oracle8iDialect.datetimeFormat( format, true ).result();
+	}
+
+	public String translateDecimalFormat(String format) {
+		//most databases support a number format
+		//copied from Oracle's to_char() function,
+		//with some very minor variation
+		return Oracle8iDialect.numberFormat( format, true );
 	}
 
 	public String translateExtractField(String fieldName) {
