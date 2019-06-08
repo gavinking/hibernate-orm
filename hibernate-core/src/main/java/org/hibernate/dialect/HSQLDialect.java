@@ -349,6 +349,11 @@ public class HSQLDialect extends Dialect {
 	}
 
 	@Override
+	public String getFromDual() {
+		return "from (values(0))";
+	}
+
+	@Override
 	public ViolatedConstraintNameExtracter getViolatedConstraintNameExtracter() {
 		return hsqldbVersion < 200 ? EXTRACTER_18 : EXTRACTER_20;
 	}

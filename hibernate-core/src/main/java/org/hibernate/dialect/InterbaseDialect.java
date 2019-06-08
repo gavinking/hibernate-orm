@@ -161,4 +161,10 @@ public class InterbaseDialect extends Dialect {
 	public boolean isCurrentTimestampSelectStringCallable() {
 		return true;
 	}
+
+	@Override
+	public String getFromDual() {
+		return "from RDB$DATABASE";
+	}
+
 }

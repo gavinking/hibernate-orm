@@ -194,6 +194,11 @@ public class SAPDBDialect extends Dialect {
 	}
 
 	@Override
+	public String getFromDual() {
+		return "from dual";
+	}
+
+	@Override
 	public CaseFragment createCaseFragment() {
 		return new DecodeCaseFragment();
 	}

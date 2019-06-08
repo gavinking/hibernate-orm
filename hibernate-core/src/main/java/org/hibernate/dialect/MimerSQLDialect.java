@@ -164,6 +164,11 @@ public class MimerSQLDialect extends Dialect {
 	}
 
 	@Override
+	public String getFromDual() {
+		return "from (values(0))";
+	}
+
+	@Override
 	public boolean forUpdateOfColumns() {
 		return false;
 	}

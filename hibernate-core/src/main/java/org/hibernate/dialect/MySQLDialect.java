@@ -290,6 +290,11 @@ public class MySQLDialect extends Dialect {
 	}
 
 	@Override
+	public String getFromDual() {
+		return "from dual";
+	}
+
+	@Override
 	public char closeQuote() {
 		return '`';
 	}

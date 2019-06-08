@@ -174,6 +174,11 @@ public class Oracle9Dialect extends Dialect {
 	}
 
 	@Override
+	public String getFromDual() {
+		return "from dual";
+	}
+
+	@Override
 	public boolean supportsLimit() {
 		return true;
 	}

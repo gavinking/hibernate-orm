@@ -253,6 +253,11 @@ public class Oracle8iDialect extends Dialect {
 	}
 
 	@Override
+	public String getFromDual() {
+		return "from dual";
+	}
+
+	@Override
 	public LimitHandler getLimitHandler() {
 		return LIMIT_HANDLER;
 	}
