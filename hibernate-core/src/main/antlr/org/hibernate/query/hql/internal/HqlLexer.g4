@@ -16,6 +16,8 @@ WS : ( ' ' | '\t' | '\f' | EOL ) -> skip;
 fragment
 EOL	: [\r\n]+;
 
+COMMENT : '/*' (~'*' | '*' ~'/' )* '*/' -> skip;
+
 INTEGER_LITERAL : INTEGER_NUMBER ;
 
 fragment
