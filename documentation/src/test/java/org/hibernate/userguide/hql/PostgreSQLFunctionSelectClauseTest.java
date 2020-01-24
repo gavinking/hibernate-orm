@@ -16,7 +16,6 @@ import javax.persistence.Tuple;
 import org.hibernate.Session;
 import org.hibernate.boot.spi.MetadataBuilderContributor;
 import org.hibernate.dialect.PostgreSQL82Dialect;
-import org.hibernate.dialect.function.StandardSQLFunction;
 import org.hibernate.jpa.test.BaseEntityManagerFunctionalTestCase;
 import org.hibernate.type.StandardBasicTypes;
 

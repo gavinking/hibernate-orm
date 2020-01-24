@@ -73,7 +73,8 @@ targetFieldsSpec
 // QUERY SPEC - general structure of root sqm or sub sqm
 
 querySpec
-	:	selectClause? fromClause whereClause? ( groupByClause havingClause? )? orderByClause? limitClause? offsetClause?
+	: selectClause fromClause? whereClause? ( groupByClause havingClause? )? orderByClause? limitClause? offsetClause?
+	| fromClause whereClause? ( groupByClause havingClause? )? selectClause? orderByClause? limitClause? offsetClause?
 	;
 
 
@@ -363,22 +364,27 @@ whereClause
 	;
 
 predicate
+	//highest to lowest precedence
 	: LEFT_PAREN predicate RIGHT_PAREN						# GroupedPredicate
-	| predicate OR predicate								# OrPredicate
-	| predicate AND predicate								# AndPredicate
-	| NOT predicate											# NegatedPredicate
 	| expression IS (NOT)? NULL								# IsNullPredicate
 	| expression IS (NOT)? EMPTY							# IsEmptyPredicate
-	| expression EQUAL expression							# EqualityPredicate
-	| expression NOT_EQUAL expression						# InequalityPredicate
-	| expression GREATER expression							# GreaterThanPredicate
-	| expression GREATER_EQUAL expression					# GreaterThanOrEqualPredicate
-	| expression LESS expression							# LessThanPredicate
-	| expression LESS_EQUAL expression						# LessThanOrEqualPredicate
 	| expression (NOT)? IN inList							# InPredicate
 	| expression (NOT)? BETWEEN expression AND expression	# BetweenPredicate
 	| expression (NOT)? LIKE expression (likeEscape)?		# LikePredicate
+	| expression comparisonOperator expression				# ComparisonPredicate
 	| MEMBER OF path										# MemberOfPredicate
+	| NOT predicate											# NegatedPredicate
+	| predicate AND predicate								# AndPredicate
+	| predicate OR predicate								# OrPredicate
+	;
+
+comparisonOperator
+	: EQUAL
+	| NOT_EQUAL
+	| GREATER
+	| GREATER_EQUAL
+	| LESS
+	| LESS_EQUAL
 	;
 
 inList
@@ -396,29 +402,40 @@ likeEscape
 // Expression
 
 expression
-	: expression DOUBLE_PIPE expression			# ConcatenationExpression
-	| expression PLUS expression				# AdditionExpression
-	| expression MINUS expression				# SubtractionExpression
-	| expression ASTERISK expression			# MultiplicationExpression
-	| expression SLASH expression				# DivisionExpression
-	| expression PERCENT expression				# ModuloExpression
-	// todo (6.0) : should these unary plus/minus rules only apply to literals?
-	//		if so, move the MINUS / PLUS recognition to the `literal` rule
-	//		specificcally for numeric literals
-	| MINUS expression							# UnaryMinusExpression
-	| PLUS expression							# UnaryPlusExpression
-	| caseStatement								# CaseExpression
-	| coalesce									# CoalesceExpression
-	| nullIf									# NullIfExpression
-	| literal									# LiteralExpression
-	| parameter									# ParameterExpression
-	| entityTypeReference						# EntityTypeExpression
-	| entityIdReference							# EntityIdExpression
-	| entityVersionReference					# EntityVersionExpression
-	| entityNaturalIdReference					# EntityNaturalIdExpression
-	| path										# PathExpression
-	| function									# FunctionExpression
-	| LEFT_PAREN subQuery RIGHT_PAREN			# SubQueryExpression
+	//highest to lowest precedence
+	: LEFT_PAREN expression RIGHT_PAREN				# GroupedExpression
+	| LEFT_PAREN subQuery RIGHT_PAREN				# SubQueryExpression
+	| caseList										# CaseExpression
+	| literal										# LiteralExpression
+	| parameter										# ParameterExpression
+	| entityTypeReference							# EntityTypeExpression
+	| entityIdReference								# EntityIdExpression
+	| entityVersionReference						# EntityVersionExpression
+	| entityNaturalIdReference						# EntityNaturalIdExpression
+	| path											# PathExpression
+	| function										# FunctionExpression
+	| signOperator expression						# UnaryExpression
+	| expression datetimeField  					# ToDurationExpression
+	| expression BY datetimeField					# FromDurationExpression
+	| expression multiplicativeOperator expression	# MultiplicationExpression
+	| expression additiveOperator expression		# AdditionExpression
+	| expression DOUBLE_PIPE expression				# ConcatenationExpression
+	;
+
+multiplicativeOperator
+	: SLASH
+	| PERCENT
+	| ASTERISK
+	;
+
+additiveOperator
+	: PLUS
+	| MINUS
+	;
+
+signOperator
+	: PLUS
+	| MINUS
 	;
 
 entityTypeReference
@@ -437,12 +454,12 @@ entityNaturalIdReference
 	: NATURALID LEFT_PAREN path RIGHT_PAREN pathContinuation?
 	;
 
-caseStatement
-	: simpleCaseStatement
-	| searchedCaseStatement
+caseList
+	: simpleCaseList
+	| searchedCaseList
 	;
 
-simpleCaseStatement
+simpleCaseList
 	: CASE expression (simpleCaseWhen)+ (caseOtherwise)? END
 	;
 
@@ -454,7 +471,7 @@ caseOtherwise
 	: ELSE expression
 	;
 
-searchedCaseStatement
+searchedCaseList
 	: CASE (searchedCaseWhen)+ (caseOtherwise)? END
 	;
 
@@ -470,12 +487,15 @@ leastFunction
 	: LEAST LEFT_PAREN expression (COMMA expression)+ RIGHT_PAREN
 	;
 
-coalesce
+coalesceFunction
 	: COALESCE LEFT_PAREN expression (COMMA expression)+ RIGHT_PAREN
-	| IFNULL LEFT_PAREN expression COMMA expression RIGHT_PAREN
 	;
 
-nullIf
+ifnullFunction
+	: IFNULL LEFT_PAREN expression COMMA expression RIGHT_PAREN
+	;
+
+nullifFunction
 	: NULLIF LEFT_PAREN expression COMMA expression RIGHT_PAREN
 	;
 
@@ -497,24 +517,27 @@ literal
 	;
 
 temporalLiteral
-	: dateTimeLiteral
+	: datetimeLiteral
 	| dateLiteral
 	| timeLiteral
 	| jdbcTimestampLiteral
 	| jdbcDateLiteral
-    | jdbcTimeLiteral
+	| jdbcTimeLiteral
 	;
 
-dateTimeLiteral
-	: LEFT_BRACE dateTime RIGHT_BRACE
+datetimeLiteral
+	: DATETIME dateTime
+	| LEFT_BRACE dateTime RIGHT_BRACE
 	;
 
 dateLiteral
-	: LEFT_BRACE date RIGHT_BRACE
+	: DATE date
+	| LEFT_BRACE date RIGHT_BRACE
 	;
 
 timeLiteral
-	: LEFT_BRACE time RIGHT_BRACE
+	: TIME time
+	| LEFT_BRACE time RIGHT_BRACE
 	;
 
 dateTime
@@ -596,7 +619,7 @@ nonStandardFunctionName
 	;
 
 nonStandardFunctionArguments
-	: expression (COMMA expression)*
+	: (datetimeField COMMA)? expression (COMMA expression)*
 	;
 
 jpaCollectionFunction
@@ -617,6 +640,8 @@ aggregateFunction
 	| minFunction
 	| maxFunction
 	| countFunction
+	| everyFunction
+	| anyFunction
 	;
 
 avgFunction
@@ -625,6 +650,14 @@ avgFunction
 
 sumFunction
 	: SUM LEFT_PAREN DISTINCT? expression RIGHT_PAREN
+	;
+
+everyFunction
+	: (EVERY|ALL) LEFT_PAREN DISTINCT? predicate RIGHT_PAREN
+	;
+
+anyFunction
+	: (ANY|SOME) LEFT_PAREN DISTINCT? predicate RIGHT_PAREN
 	;
 
 minFunction
@@ -640,40 +673,48 @@ countFunction
 	;
 
 standardFunction
-	:	castFunction
-	|	extractFunction
-	|	formatFunction
-	|	concatFunction
-	|	substringFunction
-	|   replaceFunction
-	|	trimFunction
-	|	upperFunction
-	|	lowerFunction
-	|	locateFunction
-	|	positionFunction
-	|	lengthFunction
-	|	absFunction
-	|	signFunction
-	|	sqrtFunction
-	|	lnFunction
-	|	expFunction
-	|	modFunction
-	|	powerFunction
-	|	ceilingFunction
-	|	floorFunction
-	|	roundFunction
-	|	trigFunction
-	|	atan2Function
-	|	strFunction
-	|	greatestFunction
-	|	leastFunction
-	|	currentDateFunction
-	|	currentTimeFunction
-	|	currentTimestampFunction
-	|	currentInstantFunction
-	|	localDateFunction
-	| 	localDateTimeFunction
-	| 	localTimeFunction
+	: castFunction
+	| extractFunction
+	| coalesceFunction
+	| nullifFunction
+	| ifnullFunction
+	| formatFunction
+	| concatFunction
+	| substringFunction
+	| leftFunction
+	| rightFunction
+	| overlayFunction
+	| replaceFunction
+	| trimFunction
+	| padFunction
+	| upperFunction
+	| lowerFunction
+	| locateFunction
+	| positionFunction
+	| lengthFunction
+	| absFunction
+	| signFunction
+	| sqrtFunction
+	| lnFunction
+	| expFunction
+	| modFunction
+	| powerFunction
+	| ceilingFunction
+	| floorFunction
+	| roundFunction
+	| trigFunction
+	| atan2Function
+	| strFunction
+	| greatestFunction
+	| leastFunction
+	| currentDateFunction
+	| currentTimeFunction
+	| currentTimestampFunction
+	| instantFunction
+	| localDateFunction
+	| localTimeFunction
+	| localDatetimeFunction
+	| offsetDatetimeFunction
 	;
 
 
@@ -682,18 +723,18 @@ castFunction
 	;
 
 castTarget
-	// todo (6.0) : should allow either
-	// 		- named cast (IDENTIFIER)
-	//			- JavaTypeDescriptorRegistry (imported) key
-	//			- java.sql.Types field NAME (alias for its value as a coded cast)
-	//			- "pass through"
-	//		- coded cast (INTEGER_LITERAL)
-	//			- SqlTypeDescriptorRegistry key
-	: identifier
+	: identifier (LEFT_PAREN INTEGER_LITERAL (COMMA INTEGER_LITERAL)? RIGHT_PAREN)?
 	;
 
 concatFunction
 	: CONCAT LEFT_PAREN expression (COMMA expression)+ RIGHT_PAREN
+	;
+
+leftFunction
+	: LEFT LEFT_PAREN expression COMMA expression RIGHT_PAREN
+	;
+rightFunction
+	: RIGHT LEFT_PAREN expression COMMA expression RIGHT_PAREN
 	;
 
 substringFunction
@@ -723,6 +764,23 @@ trimCharacter
 	: STRING_LITERAL
 	;
 
+padFunction
+	: PAD LEFT_PAREN expression WITH padLength padSpecification padCharacter? RIGHT_PAREN
+	;
+
+padSpecification
+	: LEADING
+	| TRAILING
+	;
+
+padCharacter
+	: STRING_LITERAL
+	;
+
+padLength
+	: expression
+	;
+
 upperFunction
 	: UPPER LEFT_PAREN expression RIGHT_PAREN
 	;
@@ -747,6 +805,26 @@ locateFunctionStartArgument
 	: expression
 	;
 
+overlayFunction
+	: OVERLAY LEFT_PAREN overlayFunctionStringArgument PLACING overlayFunctionReplacementArgument FROM overlayFunctionStartArgument (FOR overlayFunctionLengthArgument)? RIGHT_PAREN
+	;
+
+overlayFunctionStringArgument
+	: expression
+	;
+
+overlayFunctionReplacementArgument
+	: expression
+	;
+
+overlayFunctionStartArgument
+	: expression
+	;
+
+overlayFunctionLengthArgument
+	: expression
+	;
+
 replaceFunction
 	: REPLACE LEFT_PAREN replaceFunctionStringArgument COMMA replaceFunctionPatternArgument COMMA replaceFunctionReplacementArgument RIGHT_PAREN
 	;
@@ -764,7 +842,7 @@ replaceFunctionReplacementArgument
 	;
 
 lengthFunction
-	: LENGTH LEFT_PAREN expression RIGHT_PAREN
+	:	LENGTH LEFT_PAREN expression RIGHT_PAREN
 	;
 
 absFunction
@@ -832,14 +910,8 @@ trigFunction
 	;
 
 trigFunctionName
-    : COS
-    | SIN
-    | TAN
-    | ACOS
-    | ASIN
-    | ATAN
-    | ATAN2
-    ;
+	: SIN | COS | TAN | ASIN | ACOS | ATAN //ATAN2 is below:
+	;
 
 atan2Function
 	:	ATAN2 LEFT_PAREN expression COMMA expression RIGHT_PAREN
@@ -851,30 +923,38 @@ strFunction
 
 currentDateFunction
 	: CURRENT_DATE (LEFT_PAREN RIGHT_PAREN)?
+	| CURRENT DATE
 	;
 
 currentTimeFunction
 	: CURRENT_TIME (LEFT_PAREN RIGHT_PAREN)?
+	| CURRENT TIME
 	;
 
 currentTimestampFunction
 	: CURRENT_TIMESTAMP (LEFT_PAREN RIGHT_PAREN)?
+	| CURRENT TIMESTAMP
 	;
 
-currentInstantFunction
-	: CURRENT_INSTANT (LEFT_PAREN RIGHT_PAREN)?
-	;
-
-localDateTimeFunction
-	: LOCAL_DATETIME (LEFT_PAREN RIGHT_PAREN)?
+instantFunction
+	: CURRENT_INSTANT (LEFT_PAREN RIGHT_PAREN)? //deprecated legacy syntax
+	| INSTANT
 	;
 
 localDateFunction
-	: LOCAL_DATE (LEFT_PAREN RIGHT_PAREN)?
+	: LOCAL? DATE | LOCAL_DATE
 	;
 
 localTimeFunction
-	: LOCAL_TIME (LEFT_PAREN RIGHT_PAREN)?
+	: LOCAL? TIME | LOCAL_TIME
+	;
+
+localDatetimeFunction
+	: LOCAL? DATETIME | LOCAL_DATETIME
+	;
+
+offsetDatetimeFunction
+	: OFFSET DATETIME | OFFSET_DATETIME
 	;
 
 formatFunction
@@ -923,6 +1003,7 @@ weekField
 
 timeZoneField
 	: OFFSET (HOUR | MINUTE)?
+	| TIMEZONE_HOUR | TIMEZONE_MINUTE
 	;
 
 dateOrTimeField
@@ -961,6 +1042,7 @@ identifier
 	| ANY
 	| AS
 	| ASC
+	| ATAN2
 	| AVG
 	| BY
 	| BETWEEN
@@ -981,6 +1063,7 @@ identifier
 	| CURRENT_TIMESTAMP
 	| DAY
 	| DATE
+	| DAY
 	| DELETE
 	| DESC
 	| DISTINCT
@@ -989,6 +1072,7 @@ identifier
 	| EMPTY
 	| END
 	| ENTRY
+	| EVERY
 	| ESCAPE
 	| EXISTS
 	| EXP
@@ -997,6 +1081,7 @@ identifier
 	| FLOOR
 	| FROM
 	| FOR
+	| FORMAT
 	| FULL
 	| FUNCTION
 	| GREATEST
@@ -1008,6 +1093,7 @@ identifier
 	| INDEX
 	| INNER
 	| INSERT
+	| INSTANT
 	| INTO
 	| IS
 	| JOIN
@@ -1033,6 +1119,7 @@ identifier
 	| MINELEMENT
 	| MININDEX
 	| MINUTE
+	| MEMBER
 	| MOD
 	| MONTH
 	| NANOSECOND
@@ -1047,23 +1134,28 @@ identifier
 	| OR
 	| ORDER
 	| OUTER
+	| PAD
 	| POSITION
 	| POWER
 	| QUARTER
 	| REPLACE
 	| RIGHT
 	| ROUND
+	| RIGHT
+	| SELECT
 	| SECOND
 	| SELECT
 	| SET
 	| SIGN
 	| SIZE
+	| SOME
 	| SQRT
 	| STR
 	| SUBSTRING
 	| SUM
 	| THEN
 	| TIME
+	| TIMESTAMP
 	| TIMEZONE_HOUR
 	| TIMEZONE_MINUTE
 	| TRAILING

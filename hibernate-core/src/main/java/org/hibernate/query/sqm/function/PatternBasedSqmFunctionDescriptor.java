@@ -6,7 +6,6 @@
  */
 package org.hibernate.query.sqm.function;
 
-import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.query.sqm.produce.function.ArgumentsValidator;
 import org.hibernate.query.sqm.produce.function.FunctionReturnTypeResolver;
 import org.hibernate.query.sqm.produce.function.StandardArgumentsValidators;
@@ -18,19 +17,20 @@ import org.hibernate.sql.ast.tree.SqlAstNode;
 import java.util.List;
 
 /**
- * A {@link SqmFunctionDescriptor function descriptor} for functions
- * which produce SQL in a non-standard form (something other than
- * {@code f(x, y, z)}) which can be represented as a pattern.
- *
- * The pattern may contain numbered placeholders for function
- * arguments, for example {@code (?1 || ?2)}.
- *
- * The placeholders may change the order of the given arguments, for
- * example {@code concat(?2,?1)}.
- *
- * The last parameter may be variadic, indicated with the syntax
- * {@code (?1 || ?2...)}, meaning that the pattern accepts an
- * arbitrary number of arguments.
+ * Support for HQL functions that have different representations
+ * in different SQL dialects, where the difference can be handled
+ * via a pattern template.
+ * <p/>
+ * In HQL we might define a function {@code concat(?1, ?2)} to
+ * concatenate two strings p1 and p2. Dialects register different
+ * instances of this class using the same name (concat) but with
+ * different templates or patterns: {@code (?1 || ?2)} for Oracle,
+ * {@code concat(?1, ?2)} for MySQL, {@code (?1 + ?2)} for SQL
+ * Server. Each dialect defines a template as a string exactly as
+ * shown above, marking each function parameter with '?' followed
+ * by the parameter index. Parameters are indexed from 1. The
+ * last parameter may be a vararg, indicated with the syntax
+ * {@code (?1 || ?2...)}.
  *
  * @author <a href="mailto:alex@jboss.org">Alexey Loubyansky</a>
  */
@@ -44,21 +44,24 @@ public class PatternBasedSqmFunctionDescriptor
 	 * Constructs a pattern-based function template
 	 */
 	public PatternBasedSqmFunctionDescriptor(
-			String functionName, PatternRenderer renderer,
+			PatternRenderer renderer,
 			ArgumentsValidator argumentsValidator,
 			FunctionReturnTypeResolver returnTypeResolver,
+			String name,
 			String argumentListSignature) {
-		super(functionName,
+		super(
+				name,
 				argumentsValidator != null
-					? argumentsValidator
-					// If no validator is given, it's still better to
-					// validate against the parameter count as given
-					// by the pattern than accepting every input
-					// blindly and producing wrong output
-					: renderer.hasVarargs()
+						? argumentsValidator
+						// If no validator is given, it's still better to
+						// validate against the parameter count as given
+						// by the pattern than accepting every input
+						// blindly and producing wrong output
+						: renderer.hasVarargs()
 						? StandardArgumentsValidators.min( renderer.getParamCount() )
 						: StandardArgumentsValidators.exactly( renderer.getParamCount() ),
-				returnTypeResolver );
+					returnTypeResolver
+		);
 		this.renderer = renderer;
 		this.argumentListSignature = argumentListSignature;
 	}
@@ -69,8 +72,11 @@ public class PatternBasedSqmFunctionDescriptor
 	}
 
 	@Override
-	public void render(SqlAppender sqlAppender, String functionName, List<SqlAstNode> sqlAstArguments, SqlAstWalker walker, SessionFactoryImplementor sessionFactory) {
-		renderer.render( sqlAppender, sqlAstArguments, walker, sessionFactory );
+	public void render(
+			SqlAppender sqlAppender,
+			List<SqlAstNode> sqlAstArguments,
+			SqlAstWalker walker) {
+		renderer.render( sqlAppender, sqlAstArguments, walker );
 	}
 
 	@Override

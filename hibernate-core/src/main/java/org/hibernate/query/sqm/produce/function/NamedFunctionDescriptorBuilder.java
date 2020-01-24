@@ -6,33 +6,32 @@
  */
 package org.hibernate.query.sqm.produce.function;
 
-import org.hibernate.metamodel.mapping.BasicValuedMapping;
 import org.hibernate.query.sqm.function.NamedSqmFunctionDescriptor;
 import org.hibernate.query.sqm.function.SqmFunctionDescriptor;
 import org.hibernate.query.sqm.function.SqmFunctionRegistry;
+import org.hibernate.type.BasicType;
+import org.hibernate.type.StandardBasicTypes;
 
 /**
- * Builder for {@link NamedSqmFunctionDescriptor}s.
- *
  * @author Steve Ebersole
  */
 public class NamedFunctionDescriptorBuilder {
 
 	private final SqmFunctionRegistry registry;
+	private final String registrationKey;
 
 	private final String functionName;
-	private String sqlFunctionName;
 
 	private ArgumentsValidator argumentsValidator;
-	private FunctionReturnTypeResolver returnTypeResolver = StandardFunctionReturnTypeResolvers.useFirstNonNull();
+	private FunctionReturnTypeResolver returnTypeResolver;
 
-	private boolean requiresArgumentList = true;
+	private boolean useParenthesesWhenNoArgs = true;
 	private String argumentListSignature;
 
-	public NamedFunctionDescriptorBuilder(SqmFunctionRegistry registry, String functionName, String sqlFunctionName) {
+	public NamedFunctionDescriptorBuilder(SqmFunctionRegistry registry, String registrationKey, String functionName) {
 		this.registry = registry;
+		this.registrationKey = registrationKey;
 		this.functionName = functionName;
-		this.sqlFunctionName = sqlFunctionName;
 	}
 
 	public NamedFunctionDescriptorBuilder setArgumentsValidator(ArgumentsValidator argumentsValidator) {
@@ -48,18 +47,22 @@ public class NamedFunctionDescriptorBuilder {
 		return setArgumentsValidator( StandardArgumentsValidators.exactly( exactArgumentCount ) );
 	}
 
+	public NamedFunctionDescriptorBuilder setMinArgumentCount(int min) {
+		return setArgumentsValidator( StandardArgumentsValidators.min( min ) );
+	}
+
 	public NamedFunctionDescriptorBuilder setReturnTypeResolver(FunctionReturnTypeResolver returnTypeResolver) {
 		this.returnTypeResolver = returnTypeResolver;
 		return this;
 	}
 
-	public NamedFunctionDescriptorBuilder setInvariantType(BasicValuedMapping invariantType) {
+	public NamedFunctionDescriptorBuilder setInvariantType(BasicType invariantType) {
 		setReturnTypeResolver( StandardFunctionReturnTypeResolvers.invariant( invariantType ) );
 		return this;
 	}
 
-	public NamedFunctionDescriptorBuilder setUseParenthesesWhenNoArgs(boolean requiresArgumentList) {
-		this.requiresArgumentList = requiresArgumentList;
+	public NamedFunctionDescriptorBuilder setUseParenthesesWhenNoArgs(boolean useParenthesesWhenNoArgs) {
+		this.useParenthesesWhenNoArgs = useParenthesesWhenNoArgs;
 		return this;
 	}
 
@@ -69,30 +72,16 @@ public class NamedFunctionDescriptorBuilder {
 	}
 
 	public SqmFunctionDescriptor register() {
-		return registry.register(
-				functionName,
-				build()
-		);
+		return registry.register( registrationKey, template() );
 	}
 
-	/**
-	 * @deprecated use the form with no argument
-	 */
-	@Deprecated
-	public SqmFunctionDescriptor register(String registrationKey) {
-		return registry.register(
-				registrationKey,
-				build()
-		);
-	}
-
-	public SqmFunctionDescriptor build() {
+	public SqmFunctionDescriptor template() {
 		return new NamedSqmFunctionDescriptor(
 				functionName,
-				sqlFunctionName,
-				requiresArgumentList,
+				useParenthesesWhenNoArgs,
 				argumentsValidator,
 				returnTypeResolver,
+				registrationKey,
 				argumentListSignature
 		);
 	}

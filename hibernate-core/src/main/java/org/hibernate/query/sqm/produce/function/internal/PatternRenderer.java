@@ -6,17 +6,16 @@
  */
 package org.hibernate.query.sqm.produce.function.internal;
 
+import org.hibernate.internal.CoreLogging;
+import org.hibernate.internal.CoreMessageLogger;
+import org.hibernate.sql.ast.SqlAstWalker;
+import org.hibernate.sql.ast.spi.SqlAppender;
+import org.hibernate.sql.ast.tree.SqlAstNode;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import org.hibernate.engine.spi.SessionFactoryImplementor;
-import org.hibernate.internal.CoreLogging;
-import org.hibernate.internal.CoreMessageLogger;
-import org.hibernate.sql.ast.spi.SqlAppender;
-import org.hibernate.sql.ast.SqlAstWalker;
-import org.hibernate.sql.ast.tree.SqlAstNode;
 
 /**
  * Delegate for handling function "templates".
@@ -118,15 +117,13 @@ public class PatternRenderer {
 	 *
 	 * @param args The arguments to inject into the template
 	 * @param sqlAppender
-	 * @param factory The SessionFactory
 	 * @return The rendered template with replacements
 	 */
 	@SuppressWarnings({ "UnusedDeclaration" })
 	public void render(
 			SqlAppender sqlAppender,
 			List<SqlAstNode> args,
-			SqlAstWalker walker,
-			SessionFactoryImplementor factory) {
+			SqlAstWalker walker) {
 		final int numberOfArguments = args.size();
 		if ( numberOfArguments < maxParamIndex ) {
 			LOG.missingArguments( maxParamIndex, numberOfArguments );

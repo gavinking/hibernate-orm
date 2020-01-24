@@ -6,26 +6,24 @@
  */
 package org.hibernate.query.sqm.function;
 
-import java.util.Map;
-import java.util.TreeMap;
-
-import org.hibernate.Incubating;
-import org.hibernate.metamodel.mapping.BasicValuedMapping;
 import org.hibernate.query.sqm.produce.function.NamedFunctionDescriptorBuilder;
 import org.hibernate.query.sqm.produce.function.PatternFunctionDescriptorBuilder;
-import org.hibernate.query.sqm.produce.function.VarArgsFunctionDescriptorBuilder;
-
+import org.hibernate.query.sqm.produce.function.StandardFunctionReturnTypeResolvers;
+import org.hibernate.type.BasicType;
 import org.jboss.logging.Logger;
+
+import java.util.AbstractMap;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.stream.Stream;
 
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 
 /**
- * Defines a registry for SqmFunctionDescriptor instances
+ * Defines a registry for SQLFunction instances
  *
  * @author Steve Ebersole
  */
-@SuppressWarnings("UnusedReturnValue")
-@Incubating
 public class SqmFunctionRegistry {
 	private static final Logger log = Logger.getLogger( SqmFunctionRegistry.class );
 
@@ -34,6 +32,18 @@ public class SqmFunctionRegistry {
 
 	public SqmFunctionRegistry() {
 		log.tracef( "SqmFunctionRegistry created" );
+	}
+
+	public Stream<Map.Entry<String, SqmFunctionDescriptor>> getFunctionsByName() {
+		return Stream.concat(
+				functionMap.entrySet().stream(),
+				alternateKeyMap.entrySet().stream().map(
+						entry -> new AbstractMap.SimpleEntry<>(
+								entry.getKey(),
+								functionMap.get( entry.getValue() )
+						)
+				)
+		);
 	}
 
 	/**
@@ -55,153 +65,137 @@ public class SqmFunctionRegistry {
 		return found;
 	}
 
-	public SqmFunctionDescriptor getFunctionDescriptor(String functionName) {
-		final SqmFunctionDescriptor functionDescriptor = findFunctionDescriptor( functionName );
-		if ( functionDescriptor == null ) {
-			throw new UnknownFunctionException( "No SqmFunctionDescriptor registered as '" + functionName + "'" );
-		}
-		return functionDescriptor;
-	}
-
 	/**
-	 * Register a function descriptor by name
+	 * Register a function template by name
 	 */
 	public SqmFunctionDescriptor register(String registrationKey, SqmFunctionDescriptor function) {
 		final SqmFunctionDescriptor priorRegistration = functionMap.put( registrationKey, function );
 		log.debugf(
-				"Registered SqmFunctionTemplate [%s] under '%s'.  Prior registration = [%s]",
+				"Registered SqmFunctionTemplate [%s] under %s; prior registration was %s",
 				function,
 				registrationKey,
 				priorRegistration
 		);
-
+		alternateKeyMap.remove( registrationKey );
 		return function;
 	}
 
 	/**
-	 * Register a pattern-based descriptor by name.  Shortcut for building the descriptor via
-	 * {@link #patternDescriptorBuilder} accepting its defaults.
+	 * Register a pattern-based template by name.  Shortcut for building the template
+	 * via {@link #patternTemplateBuilder} accepting its defaults.
 	 */
 	public SqmFunctionDescriptor registerPattern(String name, String pattern) {
-		return patternDescriptorBuilder( name, pattern ).register();
+		return patternTemplateBuilder( name, pattern ).register();
 	}
 
 	/**
-	 * Register a pattern-based descriptor by name and invariant return type.  Shortcut for building the descriptor
-	 * via {@link #patternDescriptorBuilder} accepting its defaults.
+	 * Register a pattern-based template by name and invariant return type.  Shortcut for building the template
+	 * via {@link #patternTemplateBuilder} accepting its defaults.
 	 */
-	public SqmFunctionDescriptor registerPattern(String name, String pattern, BasicValuedMapping returnType) {
-		return patternDescriptorBuilder( name, pattern )
+	public SqmFunctionDescriptor registerPattern(String name, String pattern, BasicType returnType) {
+		return patternTemplateBuilder( name, pattern )
 				.setInvariantType( returnType )
 				.register();
 	}
 
 	/**
-	 * Get a builder for creating and registering a pattern-based function descriptor.
+	 * Get a builder for creating and registering a pattern-based function template.
+	 *
+	 * @param registrationKey The name under which the template will get registered
 	 * @param pattern The pattern defining the the underlying function call
 	 *
 	 * @return The builder
 	 */
-	public PatternFunctionDescriptorBuilder patternDescriptorBuilder(String name, String pattern) {
-		return new PatternFunctionDescriptorBuilder( this, name, pattern );
+	public PatternFunctionDescriptorBuilder patternTemplateBuilder(String registrationKey, String pattern) {
+		return new PatternFunctionDescriptorBuilder( this, registrationKey, pattern );
 	}
 
 	/**
-	 * Register a descriptor by name.  Shortcut for building a descriptor via {@link #namedDescriptorBuilder} using the
-	 * passed name as both the registration key and underlying SQL function name and accepting the builder's defaults.
+	 * Register a named template by name.  Shortcut for building a template via
+	 * {@link #namedTemplateBuilder} using the passed name as both the registration
+	 * key and underlying SQL function name and accepting the builder's defaults.
 	 *
 	 * @param name The function name (and registration key)
-	 * @deprecated will be removed
 	 */
-	@Deprecated
 	public SqmFunctionDescriptor registerNamed(String name) {
-		return namedDescriptorBuilder( name, name ).build();
+		return namedTemplateBuilder( name ).register();
 	}
 
 	/**
-	 * Register a named descriptor by name and invariant return type.  Shortcut for building
-	 * a descriptor via {@link #namedDescriptorBuilder} using the passed name as both the
+	 * Register a named template by name and invariant return type.  Shortcut for building
+	 * a template via {@link #namedTemplateBuilder} using the passed name as both the
 	 * registration key and underlying SQL function name and accepting the builder's defaults.
 	 *
 	 * @param name The function name (and registration key)
-	 * @deprecated will be removed
 	 */
-	@Deprecated
-	public SqmFunctionDescriptor registerNamed(String name, BasicValuedMapping returnType) {
-		return namedDescriptorBuilder( name, name ).setInvariantType( returnType ).build();
+	public SqmFunctionDescriptor registerNamed(String name, BasicType returnType) {
+		return namedTemplateBuilder( name ).setInvariantType( returnType ).register();
 	}
 
 	/**
-	 * Get a builder for creating and registering a name-based function descriptor using the passed name as
-	 * both the registration key and underlying SQL function name
+	 * Get a builder for creating and registering a name-based function template
+	 * using the passed name as both the registration key and underlying SQL
+	 * function name
 	 *
 	 * @param name The function name (and registration key)
 	 *
 	 * @return The builder
 	 */
-	public NamedFunctionDescriptorBuilder namedDescriptorBuilder(String name, String sqlFunctionName) {
-		return new NamedFunctionDescriptorBuilder( this, name, sqlFunctionName );
-	}
-
-	public NamedFunctionDescriptorBuilder namedDescriptorBuilder(String name) {
-		return new NamedFunctionDescriptorBuilder( this, name, name );
-	}
-
-	public NamedFunctionDescriptorBuilder noArgsBuilder(String name) {
-		return namedDescriptorBuilder( name, name )
-				.setExactArgumentCount( 0 );
-	}
-
-	public NamedFunctionDescriptorBuilder noArgsBuilder(String name, String sqlFunctionName) {
-		return namedDescriptorBuilder( name, sqlFunctionName )
-				.setExactArgumentCount( 0 );
+	public NamedFunctionDescriptorBuilder namedTemplateBuilder(String name) {
+		return namedTemplateBuilder( name, name );
 	}
 
 	/**
-	 * @deprecated will be removed
+	 * Get a builder for creating and registering a name-based function template.
+	 *
+	 * @param registrationKey The name under which the template will get registered
+	 * @param name The underlying SQL function name to use
+	 *
+	 * @return The builder
 	 */
-	@Deprecated
-	public VarArgsFunctionDescriptorBuilder varArgsBuilder(String name, String begin, String sep, String end) {
-		return new VarArgsFunctionDescriptorBuilder( this, name, begin, sep, end );
+	public NamedFunctionDescriptorBuilder namedTemplateBuilder(String registrationKey, String name) {
+		return new NamedFunctionDescriptorBuilder( this, registrationKey, name );
+	}
+
+	public NamedFunctionDescriptorBuilder noArgsBuilder(String name) {
+		return noArgsBuilder( name, name );
+	}
+
+	public NamedFunctionDescriptorBuilder noArgsBuilder(String registrationKey, String name) {
+		return namedTemplateBuilder( registrationKey, name )
+				.setExactArgumentCount( 0 );
 	}
 
 	/**
 	 * Specialized registration method for registering a named template for functions
 	 * expecting zero arguments.  Short-cut for building a named template via
-	 * {@link #namedDescriptorBuilder} specifying zero arguments and accepting the
+	 * {@link #namedTemplateBuilder} specifying zero arguments and accepting the
 	 * rest of the builder's defaults.
 	 *
 	 * @param name The function name (and registration key)
 	 */
 	public SqmFunctionDescriptor registerNoArgs(String name) {
-		return noArgsBuilder( name ).build();
+		return registerNoArgs( name, name );
 	}
 
-	public SqmFunctionDescriptor registerNoArgs(String name, BasicValuedMapping returnType) {
-		return noArgsBuilder( name )
+	public SqmFunctionDescriptor registerNoArgs(String registrationKey, String name) {
+		return noArgsBuilder( registrationKey, name ).register();
+	}
+
+	public SqmFunctionDescriptor registerNoArgs(String name, BasicType returnType) {
+		return registerNoArgs( name, name, returnType );
+	}
+
+	public SqmFunctionDescriptor registerNoArgs(String registrationKey, String name, BasicType returnType) {
+		return noArgsBuilder( registrationKey, name )
 				.setInvariantType( returnType )
-				.build();
+				.register();
 	}
 
-	/**
-	 * @deprecated will be removed
-	 */
-	@Deprecated
-	public SqmFunctionDescriptor registerVarArgs(
-			String name,
-			BasicValuedMapping returnType,
-			String begin,
-			String sep,
-			String end) {
-		return varArgsBuilder( name, begin, sep, end )
-				.setInvariantType( returnType )
-				.register( name );
-	}
-
-	public SqmFunctionDescriptor wrapInJdbcEscape(String registrationKey, SqmFunctionDescriptor wrapped) {
-		final JdbcEscapeFunctionDescriptor wrapper = new JdbcEscapeFunctionDescriptor( wrapped );
-		register( registrationKey, wrapper );
-		return wrapper;
+	public SqmFunctionDescriptor wrapInJdbcEscape(String name, SqmFunctionDescriptor wrapped) {
+		final JdbcEscapeFunctionDescriptor wrapperTemplate = new JdbcEscapeFunctionDescriptor( name, wrapped );
+		register( name, wrapperTemplate );
+		return wrapperTemplate;
 	}
 
 	public void registerAlternateKey(String alternateKey, String mappedKey) {
@@ -210,38 +204,7 @@ public class SqmFunctionRegistry {
 	}
 
 	/**
-	 * Register a binary/ternary function.
-	 *
-	 * i.e. a function which accepts 2-3 arguments.
-	 */
-	public void registerBinaryTernaryPattern(
-			String name,
-			BasicValuedMapping type,
-			String pattern2,
-			String pattern3) {
-		registerPatterns( name, type, null, null, pattern2, pattern3 );
-	}
-
-	private void registerPatterns(
-			String name,
-			BasicValuedMapping type,
-			String... patterns) {
-		final SqmFunctionDescriptor[] templates = new SqmFunctionDescriptor[patterns.length];
-		for ( int i = 0; i < patterns.length; i++ ) {
-			final String pattern = patterns[i];
-			if ( pattern != null ) {
-				templates[i] = patternDescriptorBuilder( name, pattern )
-						.setExactArgumentCount( i )
-						.setInvariantType( type )
-						.build();
-			}
-		}
-
-		register( name, new MultiPatternSqmFunctionDescriptor( templates ) );
-	}
-
-	/**
-	 * Overlay the functions registered here on top of the
+	 * Overlay (put on top) the functions registered here on top of the
 	 * incoming registry, potentially overriding its registrations
 	 */
 	public void overlay(SqmFunctionRegistry registryToOverly) {
@@ -255,4 +218,82 @@ public class SqmFunctionRegistry {
 		functionMap.clear();
 		alternateKeyMap.clear();
 	}
+
+	/**
+	 * Register a nullary/unary function.
+	 *
+	 * i.e. a function which accepts 0-1 arguments.
+	 */
+	public MultipatternSqmFunctionDescriptor registerNullaryUnaryPattern(
+			String name,
+			BasicType type,
+			String pattern0,
+			String pattern1) {
+		return registerPatterns( name, type, pattern0, pattern1 );
+	}
+
+	/**
+	 * Register a unary/binary function.
+	 *
+	 * i.e. a function which accepts 1-2 arguments.
+	 */
+	public MultipatternSqmFunctionDescriptor registerUnaryBinaryPattern(
+			String name,
+			BasicType type,
+			String pattern1,
+			String pattern2) {
+		return registerPatterns( name, type, null, pattern1, pattern2 );
+	}
+
+	/**
+	 * Register a binary/ternary function.
+	 *
+	 * i.e. a function which accepts 2-3 arguments.
+	 */
+	public MultipatternSqmFunctionDescriptor registerBinaryTernaryPattern(
+			String name,
+			BasicType type,
+			String pattern2,
+			String pattern3) {
+		return registerPatterns( name, type, null, null, pattern2, pattern3 );
+	}
+
+	/**
+	 * Register a ternary/quaternary function.
+	 *
+	 * i.e. a function which accepts 3-4 arguments.
+	 */
+	public MultipatternSqmFunctionDescriptor registerTernaryQuaternaryPattern(
+			String name,
+			BasicType type,
+			String pattern3,
+			String pattern4) {
+		return registerPatterns( name, type, null, null, null, pattern3, pattern4 );
+	}
+
+	private MultipatternSqmFunctionDescriptor registerPatterns(
+			String name,
+			BasicType type,
+			String... patterns) {
+		SqmFunctionDescriptor[] templates =
+				new SqmFunctionDescriptor[patterns.length];
+		for ( int i = 0; i < patterns.length; i++ ) {
+			String pattern = patterns[i];
+			if ( pattern != null ) {
+				templates[i] =
+						patternTemplateBuilder( name, pattern )
+								.setExactArgumentCount( i )
+								.setInvariantType( type )
+								.template();
+			}
+		}
+
+		MultipatternSqmFunctionDescriptor function = new MultipatternSqmFunctionDescriptor(
+				name, templates,
+				StandardFunctionReturnTypeResolvers.invariant( type )
+		);
+		register( name, function );
+		return function;
+	}
+
 }

@@ -6,19 +6,20 @@
  */
 package org.hibernate.query.sqm.function;
 
-import java.util.List;
-import java.util.Locale;
-
-import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.query.sqm.produce.function.ArgumentsValidator;
 import org.hibernate.query.sqm.produce.function.FunctionReturnTypeResolver;
 import org.hibernate.sql.ast.SqlAstWalker;
 import org.hibernate.sql.ast.spi.SqlAppender;
 import org.hibernate.sql.ast.tree.SqlAstNode;
 
+import java.util.List;
+import java.util.Locale;
+
 /**
- * A {@link SqmFunctionDescriptor function descriptor} for functions
- * which produce SQL in the standard form {@code f(x, y, z)}.
+ * Provides a standard implementation that supports the majority of the HQL
+ * functions that are translated to SQL. The Dialect and its sub-classes use
+ * this class to provide details required for processing of the associated
+ * function.
  *
  * @author David Channon
  * @author Steve Ebersole
@@ -27,27 +28,48 @@ public class NamedSqmFunctionDescriptor
 		extends AbstractSqmSelfRenderingFunctionDescriptor
 		implements FunctionRenderingSupport {
 	private final String functionName;
-	private String sqlFunctionName;
-	private final boolean requiresArguments;
+	private final boolean useParenthesesWhenNoArgs;
 	private final String argumentListSignature;
 
 	public NamedSqmFunctionDescriptor(
 			String functionName,
-			String sqlFunctionName,
-			boolean requiresArguments,
+			boolean useParenthesesWhenNoArgs,
+			ArgumentsValidator argumentsValidator,
+			FunctionReturnTypeResolver returnTypeResolver) {
+		this( functionName, useParenthesesWhenNoArgs, argumentsValidator, returnTypeResolver, functionName, null );
+	}
+
+	public NamedSqmFunctionDescriptor(
+			String functionName,
+			boolean useParenthesesWhenNoArgs,
 			ArgumentsValidator argumentsValidator,
 			FunctionReturnTypeResolver returnTypeResolver,
+			String name,
 			String argumentListSignature) {
-		super( functionName, argumentsValidator, returnTypeResolver );
+		super( name, argumentsValidator, returnTypeResolver );
 
 		this.functionName = functionName;
-		this.sqlFunctionName = sqlFunctionName;
-		this.requiresArguments = requiresArguments;
+		this.useParenthesesWhenNoArgs = useParenthesesWhenNoArgs;
 		this.argumentListSignature = argumentListSignature;
 	}
 
-	public String getFunctionName() {
+	/**
+	 * Function name accessor
+	 *
+	 * @return The function name.
+	 */
+	public String getName() {
 		return functionName;
+	}
+
+	@Override
+	public String getArgumentListSignature() {
+		return argumentListSignature==null ? super.getArgumentListSignature() : argumentListSignature;
+	}
+
+	@Override
+	public boolean alwaysIncludesParentheses() {
+		return useParenthesesWhenNoArgs;
 	}
 
 	@Override
@@ -58,13 +80,11 @@ public class NamedSqmFunctionDescriptor
 	@Override
 	public void render(
 			SqlAppender sqlAppender,
-			String functionName,
 			List<SqlAstNode> sqlAstArguments,
-			SqlAstWalker walker,
-			SessionFactoryImplementor sessionFactory) {
-		final boolean useParens = requiresArguments || !sqlAstArguments.isEmpty();
+			SqlAstWalker walker) {
+		final boolean useParens = useParenthesesWhenNoArgs || !sqlAstArguments.isEmpty();
 
-		sqlAppender.appendSql( sqlFunctionName );
+		sqlAppender.appendSql( functionName );
 		if ( useParens ) {
 			sqlAppender.appendSql( "(" );
 		}
@@ -74,23 +94,13 @@ public class NamedSqmFunctionDescriptor
 			if ( !firstPass ) {
 				sqlAppender.appendSql( ", " );
 			}
-			sqlAstArgument.accept( walker );
+			sqlAstArgument.accept(walker);
 			firstPass = false;
 		}
 
 		if ( useParens ) {
 			sqlAppender.appendSql( ")" );
 		}
-	}
-
-	@Override
-	public String getArgumentListSignature() {
-		return argumentListSignature==null ? super.getArgumentListSignature() : argumentListSignature;
-	}
-
-	@Override
-	public boolean requiresArgumentList() {
-		return requiresArguments;
 	}
 
 	@Override

@@ -6,117 +6,115 @@
  */
 package org.hibernate.query.sqm.function;
 
-import org.hibernate.metamodel.mapping.BasicValuedMapping;
-import org.hibernate.metamodel.mapping.MappingModelExpressable;
+import org.hibernate.metamodel.model.domain.AllowableFunctionReturnType;
+import org.hibernate.query.spi.QueryEngine;
 import org.hibernate.query.sqm.produce.function.ArgumentsValidator;
 import org.hibernate.query.sqm.produce.function.FunctionReturnTypeResolver;
 import org.hibernate.query.sqm.produce.function.StandardArgumentsValidators;
+import org.hibernate.query.sqm.produce.function.StandardFunctionReturnTypeResolvers;
 import org.hibernate.query.sqm.sql.SqmToSqlAstConverter;
+import org.hibernate.query.sqm.tree.SqmTypedNode;
 import org.hibernate.query.sqm.tree.SqmVisitableNode;
-import org.hibernate.sql.ast.spi.SqlAstCreationState;
 import org.hibernate.sql.ast.tree.SqlAstNode;
-import org.hibernate.sql.ast.tree.expression.Expression;
+import org.hibernate.type.spi.TypeConfiguration;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.function.Supplier;
+
+import static java.util.Collections.emptyList;
 
 /**
- * Support for SQM {@link SqmFunctionDescriptor function descriptors}
- * with type information defined by an {@link ArgumentsValidator} and
- * a {@link FunctionReturnTypeResolver}.
- *
  * @author Steve Ebersole
  */
 public abstract class AbstractSqmFunctionDescriptor implements SqmFunctionDescriptor {
-	final ArgumentsValidator argumentsValidator;
-	final FunctionReturnTypeResolver returnTypeResolver;
-	final String functionName;
+	private final ArgumentsValidator argumentsValidator;
+	private final FunctionReturnTypeResolver returnTypeResolver;
+	private final String name;
+
+	protected FunctionReturnTypeResolver getReturnTypeResolver() {
+		return returnTypeResolver;
+	}
+
+	public AbstractSqmFunctionDescriptor(String name) {
+		this( name, null, null );
+	}
+
+	public AbstractSqmFunctionDescriptor(String name, ArgumentsValidator argumentsValidator) {
+		this( name, argumentsValidator, null );
+	}
 
 	public AbstractSqmFunctionDescriptor(
-			String functionName,
+			String name,
 			ArgumentsValidator argumentsValidator,
 			FunctionReturnTypeResolver returnTypeResolver) {
-		this.functionName = functionName;
+		this.name = name;
 		this.argumentsValidator = argumentsValidator == null
 				? StandardArgumentsValidators.NONE
 				: argumentsValidator;
 		this.returnTypeResolver = returnTypeResolver == null
-				? (impliedTypeAccess, arguments) -> impliedTypeAccess.get()
+				? StandardFunctionReturnTypeResolvers.useFirstNonNull()
 				: returnTypeResolver;
 	}
 
-	public String getSignature(String functionName) {
-		return getReturnSignature() + functionName + getArgumentListSignature();
+	public String getName() {
+		return name;
 	}
 
-	/**
-	 * The return type of the function in a format suitable
-	 * for display to the user.
-	 */
+	public String getSignature(String name) {
+		return getReturnSignature() + name + getArgumentListSignature();
+	}
+
 	public String getReturnSignature() {
 		String result = returnTypeResolver.getReturnType();
 		return result.isEmpty() ? "" : result + " ";
 	}
 
-	/**
-	 * The argument list of the function in a format suitable
-	 * for display to the user.
-	 */
 	public String getArgumentListSignature() {
 		String args = argumentsValidator.getSignature();
-		return requiresArgumentList() ? args : "()".equals(args) ? "" : "[" + args + "]";
+		return alwaysIncludesParentheses() ? args : "()".equals(args) ? "" : "[" + args + "]";
 	}
 
-	public String getFunctionName() {
-		return functionName;
+	private static SqlAstNode toSqlAstNode(Object arg, SqmToSqlAstConverter walker) {
+//		if (arg instanceof SqmExpressionInterpretation) {
+//			return ( (SqmExpressionInterpretation) arg ).toSqlExpression( walker );
+//		}
+		return (SqlAstNode) arg;
 	}
 
-	/**
-	 * Validate the given {@code sqmArguments} and generate a representation
-	 * of the described function as a SQL AST node.
-	 */
-	@Override
-	public Expression generateSqlExpression(
-			String functionName,
-			List<? extends SqmVisitableNode> sqmArguments,
-			Supplier<MappingModelExpressable> inferableTypeAccess,
-			SqmToSqlAstConverter converter,
-			SqlAstCreationState creationState) {
-		argumentsValidator.validate( sqmArguments );
 
-		// todo (6.0) : work out the specifics of the type resolution
-
-		final List<SqlAstNode> arguments;
-		int argumentCount = sqmArguments == null ? 0 : sqmArguments.size();
-		switch ( argumentCount) {
-			case 0:
-				arguments = Collections.emptyList();
-				break;
-			case 1:
-				SqlAstNode argument = (SqlAstNode) sqmArguments.get(0).accept( converter );
-				arguments = Collections.singletonList( argument );
-				break;
-			default:
-				arguments = new ArrayList<>( sqmArguments.size() );
-				for (SqmVisitableNode sqmVisitableNode: sqmArguments) {
-					SqlAstNode arg = (SqlAstNode) sqmVisitableNode.accept( converter );
-					arguments.add( arg );
-				}
+	public static List<SqlAstNode> resolveSqlAstArguments(List<SqmTypedNode<?>> sqmArguments, SqmToSqlAstConverter walker) {
+		if ( sqmArguments == null || sqmArguments.isEmpty() ) {
+			return emptyList();
 		}
 
-		final BasicValuedMapping returnType =
-				returnTypeResolver.resolveFunctionReturnType(
-						() -> (BasicValuedMapping) inferableTypeAccess.get(),
-						arguments
-				);
-
-		return generateFunctionExpression( arguments, returnType );
+		final ArrayList<SqlAstNode> sqlAstArguments = new ArrayList<>();
+		for ( SqmTypedNode sqmArgument : sqmArguments ) {
+			sqlAstArguments.add( toSqlAstNode( ((SqmVisitableNode) sqmArgument).accept( walker ), walker ) );
+		}
+		return sqlAstArguments;
 	}
 
-	protected abstract Expression generateFunctionExpression(
-			List<SqlAstNode> sqlAstArgs,
-			BasicValuedMapping returnType);
+	@Override
+	public final <T> SelfRenderingSqlFunctionExpression<T> generateSqmExpression(
+			List<SqmTypedNode<?>> arguments,
+			AllowableFunctionReturnType<T> impliedResultType,
+			QueryEngine queryEngine,
+			TypeConfiguration typeConfiguration) {
+		argumentsValidator.validate( arguments );
+
+		return generateSqmFunctionExpression(
+				arguments,
+				impliedResultType,
+				queryEngine,
+				typeConfiguration
+		);
+	}
+
+	protected abstract <T> SelfRenderingSqlFunctionExpression<T> generateSqmFunctionExpression(
+			List<SqmTypedNode<?>> arguments,
+			AllowableFunctionReturnType<T> impliedResultType,
+			QueryEngine queryEngine, TypeConfiguration typeConfiguration);
+
 
 }
+

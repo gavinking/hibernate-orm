@@ -6,29 +6,28 @@
  */
 package org.hibernate.query.sqm.produce.function;
 
-import org.hibernate.metamodel.mapping.BasicValuedMapping;
 import org.hibernate.query.sqm.function.PatternBasedSqmFunctionDescriptor;
 import org.hibernate.query.sqm.function.SqmFunctionDescriptor;
 import org.hibernate.query.sqm.function.SqmFunctionRegistry;
 import org.hibernate.query.sqm.produce.function.internal.PatternRenderer;
+import org.hibernate.type.BasicType;
+import org.hibernate.type.StandardBasicTypes;
 
 /**
- * Builder for {@link PatternBasedSqmFunctionDescriptor}s.
- *
  * @author Steve Ebersole
  */
 public class PatternFunctionDescriptorBuilder {
 	private final SqmFunctionRegistry registry;
-	private final String functionName;
+	private final String registrationKey;
 	private final String pattern;
 	private String argumentListSignature;
 
 	private ArgumentsValidator argumentsValidator;
 	private FunctionReturnTypeResolver returnTypeResolver;
 
-	public PatternFunctionDescriptorBuilder(SqmFunctionRegistry registry, String functionName, String pattern) {
+	public PatternFunctionDescriptorBuilder(SqmFunctionRegistry registry, String registrationKey, String pattern) {
 		this.registry = registry;
-		this.functionName = functionName;
+		this.registrationKey = registrationKey;
 		this.pattern = pattern;
 	}
 
@@ -41,16 +40,12 @@ public class PatternFunctionDescriptorBuilder {
 		return setArgumentsValidator( StandardArgumentsValidators.exactly( exactArgumentCount ) );
 	}
 
-	public PatternFunctionDescriptorBuilder setArgumentCountBetween(int min, int max) {
-		return setArgumentsValidator( StandardArgumentsValidators.between( min, max ) );
-	}
-
 	public PatternFunctionDescriptorBuilder setReturnTypeResolver(FunctionReturnTypeResolver returnTypeResolver) {
 		this.returnTypeResolver = returnTypeResolver;
 		return this;
 	}
 
-	public PatternFunctionDescriptorBuilder setInvariantType(BasicValuedMapping invariantType) {
+	public PatternFunctionDescriptorBuilder setInvariantType(BasicType invariantType) {
 		setReturnTypeResolver( StandardFunctionReturnTypeResolvers.invariant( invariantType ) );
 		return this;
 	}
@@ -61,15 +56,15 @@ public class PatternFunctionDescriptorBuilder {
 	}
 
 	public SqmFunctionDescriptor register() {
-		return registry.register( functionName, build() );
+		return registry.register( registrationKey, template() );
 	}
 
-	public SqmFunctionDescriptor build() {
+	public SqmFunctionDescriptor template() {
 		return new PatternBasedSqmFunctionDescriptor(
-				functionName,
 				new PatternRenderer( pattern ),
 				argumentsValidator,
 				returnTypeResolver,
+				registrationKey,
 				argumentListSignature
 		);
 	}

@@ -6,15 +6,24 @@
  */
 package org.hibernate.dialect.function;
 
-import org.hibernate.dialect.Oracle8iDialect;
+import org.hibernate.dialect.OracleDialect;
+import org.hibernate.metamodel.model.domain.AllowableFunctionReturnType;
+import org.hibernate.query.spi.QueryEngine;
 import org.hibernate.query.sqm.function.AbstractSqmFunctionDescriptor;
-import org.hibernate.query.sqm.function.AbstractSqmSelfRenderingFunctionDescriptor;
 import org.hibernate.query.sqm.function.FunctionRenderingSupport;
+import org.hibernate.query.sqm.function.SelfRenderingSqlFunctionExpression;
 import org.hibernate.query.sqm.produce.function.StandardArgumentsValidators;
 import org.hibernate.query.sqm.produce.function.StandardFunctionReturnTypeResolvers;
+import org.hibernate.query.sqm.tree.SqmTypedNode;
+import org.hibernate.sql.ast.SqlAstWalker;
+import org.hibernate.sql.ast.spi.SqlAppender;
+import org.hibernate.sql.ast.tree.SqlAstNode;
 import org.hibernate.sql.ast.tree.expression.Expression;
 import org.hibernate.sql.ast.tree.expression.Format;
 import org.hibernate.type.StandardBasicTypes;
+import org.hibernate.type.spi.TypeConfiguration;
+
+import java.util.List;
 
 /**
  * DB2's varchar_format() can't handle quoted literal strings in
@@ -24,7 +33,9 @@ import org.hibernate.type.StandardBasicTypes;
  *
  * @author Gavin King
  */
-public class DB2FormatEmulation extends AbstractSqmSelfRenderingFunctionDescriptor {
+public class DB2FormatEmulation
+		extends AbstractSqmFunctionDescriptor implements FunctionRenderingSupport {
+
 	public DB2FormatEmulation() {
 		super(
 				"format",
@@ -34,41 +45,63 @@ public class DB2FormatEmulation extends AbstractSqmSelfRenderingFunctionDescript
 	}
 
 	@Override
-	public FunctionRenderingSupport getRenderingSupport() {
-		return (sqlAppender, functionName, sqlAstArguments, walker, sessionFactory) -> {
-			final Expression datetime = (Expression) sqlAstArguments.get( 0 );
-			final Format format = (Format) sqlAstArguments.get( 1 );
+	public void render(
+			SqlAppender sqlAppender,
+			List<SqlAstNode> arguments,
+			SqlAstWalker walker) {
+		Expression datetime = (Expression) arguments.get(0);
+		Format format = (Format) arguments.get(1);
 
-			sqlAppender.appendSql("(");
-			String[] bits = Oracle8iDialect.datetimeFormat( format.getFormat(), false ).result().split( "\"");
-			boolean first = true;
-			for ( int i=0; i<bits.length; i++ ) {
-				String bit = bits[i];
-				if ( !bit.isEmpty() ) {
-					if ( first ) {
-						first = false;
-					}
-					else {
-						sqlAppender.appendSql("||");
-					}
-					if ( i % 2 == 0 ) {
-						sqlAppender.appendSql("varchar_format(");
-						datetime.accept(walker);
-						sqlAppender.appendSql(",'");
-						sqlAppender.appendSql( bit );
-						sqlAppender.appendSql("')");
-					}
-					else {
-						sqlAppender.appendSql("'");
-						sqlAppender.appendSql( bit );
-						sqlAppender.appendSql("'");
-					}
+		sqlAppender.appendSql("(");
+		String[] bits = OracleDialect.datetimeFormat( format.getFormat(), false ).result().split("\"");
+		boolean first = true;
+		for ( int i=0; i<bits.length; i++ ) {
+			String bit = bits[i];
+			if ( !bit.isEmpty() ) {
+				if ( first ) {
+					first = false;
+				}
+				else {
+					sqlAppender.appendSql("||");
+				}
+				if ( i % 2 == 0 ) {
+					sqlAppender.appendSql("varchar_format(");
+					datetime.accept(walker);
+					sqlAppender.appendSql(",'");
+					sqlAppender.appendSql( bit );
+					sqlAppender.appendSql("')");
+				}
+				else {
+					sqlAppender.appendSql("'");
+					sqlAppender.appendSql( bit );
+					sqlAppender.appendSql("'");
 				}
 			}
-			if ( first ) {
-				sqlAppender.appendSql("''");
-			}
-			sqlAppender.appendSql(")");
-		};
+		}
+		if ( first ) {
+			sqlAppender.appendSql("''");
+		}
+		sqlAppender.appendSql(")");
+	}
+
+	@Override
+	protected <T> SelfRenderingSqlFunctionExpression<T> generateSqmFunctionExpression(
+			List<SqmTypedNode<?>> arguments,
+			AllowableFunctionReturnType<T> impliedResultType,
+			QueryEngine queryEngine,
+			TypeConfiguration typeConfiguration) {
+		return new SelfRenderingSqlFunctionExpression<T>(
+				this, this,
+				arguments,
+				impliedResultType,
+				getReturnTypeResolver(),
+				queryEngine.getCriteriaBuilder(),
+				"format"
+		);
+	}
+
+	@Override
+	public String getArgumentListSignature() {
+		return "(datetime as pattern)";
 	}
 }
