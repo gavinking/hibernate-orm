@@ -791,89 +791,89 @@ public class FunctionTests extends SessionFactoryBasedFunctionalTest {
 					session.save(entity);
 					session.flush();
 					assertThat(
-							session.createQuery("select extract(week of year from date '2019-01-01') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(week of year from date 2019-01-01) from EntityOfBasics").getResultList().get(0),
 							is(1)
 					);
 					assertThat(
-							session.createQuery("select extract(week of year from date '2019-01-05') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(week of year from date 2019-01-05) from EntityOfBasics").getResultList().get(0),
 							is(1)
 					);
 					assertThat(
-							session.createQuery("select extract(week of year from date '2019-01-06') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(week of year from date 2019-01-06) from EntityOfBasics").getResultList().get(0),
 							is(2)
 					);
 
 					assertThat(
-							session.createQuery("select extract(week of month from date '2019-05-01') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(week of month from date 2019-05-01) from EntityOfBasics").getResultList().get(0),
 							is(1)
 					);
 					assertThat(
-							session.createQuery("select extract(week of month from date '2019-05-04') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(week of month from date 2019-05-04) from EntityOfBasics").getResultList().get(0),
 							is(1)
 					);
 					assertThat(
-							session.createQuery("select extract(week of month from date '2019-05-05') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(week of month from date 2019-05-05) from EntityOfBasics").getResultList().get(0),
 							is(2)
 					);
 
 					assertThat(
-							session.createQuery("select extract(week from date '2019-05-27') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(week from date 2019-05-27) from EntityOfBasics").getResultList().get(0),
 							is(22)
 					);
 					assertThat(
-							session.createQuery("select extract(week from date '2019-06-02') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(week from date 2019-06-02) from EntityOfBasics").getResultList().get(0),
 							is(22)
 					);
 					assertThat(
-							session.createQuery("select extract(week from date '2019-06-03') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(week from date 2019-06-03) from EntityOfBasics").getResultList().get(0),
 							is(23)
 					);
 
 					assertThat(
-							session.createQuery("select extract(day of year from date '2019-05-30') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(day of year from date 2019-05-30) from EntityOfBasics").getResultList().get(0),
 							is(150)
 					);
 					assertThat(
-							session.createQuery("select extract(day of month from date '2019-05-27') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(day of month from date 2019-05-27) from EntityOfBasics").getResultList().get(0),
 							is(27)
 					);
 
 					assertThat(
-							session.createQuery("select extract(day from date '2019-05-31') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(day from date 2019-05-31) from EntityOfBasics").getResultList().get(0),
 							is(31)
 					);
 					assertThat(
-							session.createQuery("select extract(month from date '2019-05-31') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(month from date 2019-05-31) from EntityOfBasics").getResultList().get(0),
 							is(5)
 					);
 					assertThat(
-							session.createQuery("select extract(year from date '2019-05-31') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(year from date 2019-05-31) from EntityOfBasics").getResultList().get(0),
 							is(2019)
 					);
 					assertThat(
-							session.createQuery("select extract(quarter from date '2019-05-31') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(quarter from date 2019-05-31) from EntityOfBasics").getResultList().get(0),
 							is(2)
 					);
 
 					assertThat(
-							session.createQuery("select extract(day of week from date '2019-05-27') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(day of week from date 2019-05-27) from EntityOfBasics").getResultList().get(0),
 							is(2)
 					);
 					assertThat(
-							session.createQuery("select extract(day of week from date '2019-05-31') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(day of week from date 2019-05-31) from EntityOfBasics").getResultList().get(0),
 							is(6)
 					);
 
 					assertThat(
-							session.createQuery("select extract(second from time '14:12:10') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(second from time 14:12:10) from EntityOfBasics").getResultList().get(0),
 							is(10f)
 					);
 					assertThat(
-							session.createQuery("select extract(minute from time '14:12:10') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(minute from time 14:12:10) from EntityOfBasics").getResultList().get(0),
 							is(12)
 					);
 					assertThat(
-							session.createQuery("select extract(hour from time '14:12:10') from EntityOfBasics").getResultList().get(0),
+							session.createQuery("select extract(hour from time 14:12:10) from EntityOfBasics").getResultList().get(0),
 							is(14)
 					);
 
