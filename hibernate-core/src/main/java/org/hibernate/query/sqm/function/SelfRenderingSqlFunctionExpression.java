@@ -9,15 +9,15 @@ package org.hibernate.query.sqm.function;
 import org.hibernate.metamodel.mapping.BasicValuedMapping;
 import org.hibernate.metamodel.mapping.MappingModelExpressable;
 import org.hibernate.metamodel.model.domain.AllowableFunctionReturnType;
-import org.hibernate.metamodel.model.domain.DomainType;
 import org.hibernate.query.sqm.NodeBuilder;
-import org.hibernate.query.sqm.SqmPathSource;
 import org.hibernate.query.sqm.produce.function.FunctionReturnTypeResolver;
 import org.hibernate.query.sqm.sql.SqmToSqlAstConverter;
 import org.hibernate.query.sqm.tree.SqmTypedNode;
 import org.hibernate.query.sqm.tree.SqmVisitableNode;
 import org.hibernate.query.sqm.tree.expression.SqmFunction;
 import org.hibernate.sql.ast.tree.SqlAstNode;
+import org.hibernate.sql.ast.tree.expression.Expression;
+import org.hibernate.sql.results.graph.DomainResultCreationState;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -79,8 +79,21 @@ public class SelfRenderingSqlFunctionExpression<T> extends SqmFunction<T> {
 						walker.getCreationContext().getDomainModel().getTypeConfiguration()
 				);
 
+		return new SelfRenderingFunctionSqlAstExpression(
+				getRenderingSupport(),
+				resolveSqlAstArguments( getArguments(), walker),
+				resultType,
+				getMappingModelExpressable( walker, resultType )
+		);
+	}
+
+	private MappingModelExpressable<?> getMappingModelExpressable(
+			SqmToSqlAstConverter walker,
+			AllowableFunctionReturnType<?> resultType) {
 		MappingModelExpressable<?> mapping;
 		if ( resultType instanceof MappingModelExpressable ) {
+			// here we have a BasicType, which can be cast
+			// directly to BasicValuedMapping
 			mapping = (MappingModelExpressable<?>) resultType;
 		}
 		else {
@@ -88,17 +101,23 @@ public class SelfRenderingSqlFunctionExpression<T> extends SqmFunction<T> {
 			// and we have no way to get a BasicValuedMapping
 			// from it directly
 			mapping = returnTypeResolver.resolveFunctionReturnType(
-					() -> null,
-					resolveSqlAstArguments(arguments, walker)
+					() -> {
+						try {
+							// I think it's supposed to be this, but
+							// resolveMappingExpressable() looks to
+							// be unfinished, and throws
+							return (BasicValuedMapping)
+									walker.getCreationContext().getDomainModel()
+											.resolveMappingExpressable( getNodeType() );
+						}
+						catch (Exception e) {
+							return null; // this works at least approximately
+						}
+					},
+					resolveSqlAstArguments( arguments, walker )
 			);
 		}
-
-		return new SelfRenderingFunctionSqlAstExpression(
-				getRenderingSupport(),
-				resolveSqlAstArguments( getArguments(), walker),
-				resultType,
-				mapping
-		);
+		return mapping;
 	}
 
 	@Override
@@ -106,4 +125,8 @@ public class SelfRenderingSqlFunctionExpression<T> extends SqmFunction<T> {
 		return name;
 	}
 
+	@Override
+	public void applySqlSelections(DomainResultCreationState creationState) {
+		//TODO!!!!
+	}
 }
