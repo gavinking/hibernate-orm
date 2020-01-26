@@ -756,7 +756,7 @@ public class FunctionTests extends SessionFactoryBasedFunctionalTest {
 
 					session.createQuery("select extract(offset hour from e.theTime) from EntityOfBasics e")
 							.list();
-					session.createQuery("select extract(offset hour minute from e.theTime) from EntityOfBasics e")
+					session.createQuery("select extract(offset minute from e.theTime) from EntityOfBasics e")
 							.list();
 
 					session.createQuery("select extract(offset from e.theTimestamp) from EntityOfBasics e")

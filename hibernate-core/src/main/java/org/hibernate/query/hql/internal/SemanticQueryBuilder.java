@@ -2348,6 +2348,13 @@ public class SemanticQueryBuilder extends HqlParserBaseVisitor implements SqmCre
 					nodeBuilder
 			);
 		}
+		if (ctx.NANOSECOND()!=null) {
+			return new SqmExtractUnit<>(
+					NANOSECOND,
+					basicType( Long.class ),
+					nodeBuilder
+			);
+		}
 		if ( ctx.WEEK() != null ) {
 			return new SqmExtractUnit<>(
 					TemporalUnit.WEEK,
