@@ -46,7 +46,7 @@ public class InsertSubstringOverlayEmulation
 			AllowableFunctionReturnType<T> impliedResultType,
 			QueryEngine queryEngine,
 			TypeConfiguration typeConfiguration) {
-		BasicType intType = typeConfiguration.getBasicTypeForJavaType(Integer.class);
+		BasicType<Integer> intType = typeConfiguration.getBasicTypeForJavaType(Integer.class);
 
 		SqmTypedNode<?> string = arguments.get(0);
 		SqmTypedNode<?> replacement = arguments.get(1);

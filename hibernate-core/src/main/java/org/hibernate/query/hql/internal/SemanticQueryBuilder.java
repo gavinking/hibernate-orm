@@ -1363,14 +1363,14 @@ public class SemanticQueryBuilder extends HqlParserBaseVisitor implements SqmCre
 			throw new ParsingException( "Expecting 2 operands to the multiplicative operator" );
 		}
 
-		SqmExpression left = (SqmExpression) ctx.expression( 0 ).accept(this);
-		SqmExpression right = (SqmExpression) ctx.expression( 1 ).accept(this);
+		SqmExpression<?> left = (SqmExpression<?>) ctx.expression( 0 ).accept(this);
+		SqmExpression<?> right = (SqmExpression<?>) ctx.expression( 1 ).accept(this);
 		BinaryArithmeticOperator operator = (BinaryArithmeticOperator) ctx.multiplicativeOperator().accept( this );
 
 		if ( operator == BinaryArithmeticOperator.MODULO ) {
 			return getFunctionTemplate("mod").generateSqmExpression(
 					asList( left, right ),
-					(AllowableFunctionReturnType) left.getNodeType(),
+					(AllowableFunctionReturnType<?>) left.getNodeType(),
 					creationContext.getQueryEngine(),
 					creationContext.getJpaMetamodel().getTypeConfiguration()
 			);
