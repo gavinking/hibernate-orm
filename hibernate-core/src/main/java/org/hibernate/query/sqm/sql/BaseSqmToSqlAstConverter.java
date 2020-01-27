@@ -835,10 +835,8 @@ public abstract class BaseSqmToSqlAstConverter
 				jdbcParametersForSqm::add
 		);
 
-		if (!jdbcParamsBySqmParam.containsKey(sqmParameter)) {
-			this.jdbcParameters.addParameters(jdbcParametersForSqm);
-			this.jdbcParamsBySqmParam.put(sqmParameter, jdbcParametersForSqm);
-		}
+		this.jdbcParameters.addParameters( jdbcParametersForSqm );
+		this.jdbcParamsBySqmParam.put( sqmParameter, jdbcParametersForSqm );
 
 		final QueryParameterImplementor<?> queryParameter = domainParameterXref.getQueryParameter( sqmParameter );
 		final QueryParameterBinding<?> binding = domainParameterBindings.getBinding( queryParameter );
