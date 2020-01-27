@@ -1423,6 +1423,11 @@ public class SemanticQueryBuilder extends HqlParserBaseVisitor implements SqmCre
 	}
 
 	@Override
+	public Object visitGroupedExpression(HqlParser.GroupedExpressionContext ctx) {
+		return ctx.expression().accept(this);
+	}
+
+	@Override
 	public SqmCaseSimple visitSimpleCaseList(HqlParser.SimpleCaseListContext ctx) {
 		final SqmCaseSimple<?,?> caseExpression = new SqmCaseSimple<>(
 				(SqmExpression<?>) ctx.expression().accept( this ),
