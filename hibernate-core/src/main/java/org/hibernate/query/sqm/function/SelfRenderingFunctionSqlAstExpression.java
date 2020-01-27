@@ -6,8 +6,6 @@
  */
 package org.hibernate.query.sqm.function;
 
-import org.hibernate.NotYetImplementedFor6Exception;
-import org.hibernate.QueryException;
 import org.hibernate.dialect.Dialect;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.mapping.Selectable;
@@ -20,6 +18,8 @@ import org.hibernate.query.SemanticException;
 import org.hibernate.query.sqm.sql.internal.DomainResultProducer;
 import org.hibernate.sql.ast.SqlAstWalker;
 import org.hibernate.sql.ast.spi.SqlAppender;
+import org.hibernate.sql.ast.spi.SqlAstCreationState;
+import org.hibernate.sql.ast.spi.SqlExpressionResolver;
 import org.hibernate.sql.ast.spi.SqlSelection;
 import org.hibernate.sql.ast.tree.SqlAstNode;
 import org.hibernate.sql.ast.tree.expression.SelfRenderingExpression;
@@ -156,6 +156,24 @@ public class SelfRenderingFunctionSqlAstExpression
 
 	@Override
 	public JdbcMapping getJdbcMapping() {
-		return null;
+		if ( type instanceof SqlExpressable ) {
+			return ( (SqlExpressable) type ).getJdbcMapping();
+		}
+		else {
+			//TODO: do something else if we have a MappingModelExpressable?
+			throw new SemanticException("function return type is unknown, so function cannot occur in select");
+		}
+	}
+
+	@Override
+	public void applySqlSelections(DomainResultCreationState creationState) {
+		final SqlAstCreationState sqlAstCreationState = creationState.getSqlAstCreationState();
+		final SqlExpressionResolver sqlExpressionResolver = sqlAstCreationState.getSqlExpressionResolver();
+
+		sqlExpressionResolver.resolveSqlSelection(
+				this,
+				type.getExpressableJavaTypeDescriptor(),
+				sqlAstCreationState.getCreationContext().getDomainModel().getTypeConfiguration()
+		);
 	}
 }

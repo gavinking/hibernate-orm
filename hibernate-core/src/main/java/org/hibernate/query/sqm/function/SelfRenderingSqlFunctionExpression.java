@@ -16,7 +16,6 @@ import org.hibernate.query.sqm.tree.SqmTypedNode;
 import org.hibernate.query.sqm.tree.SqmVisitableNode;
 import org.hibernate.query.sqm.tree.expression.SqmFunction;
 import org.hibernate.sql.ast.tree.SqlAstNode;
-import org.hibernate.sql.ast.tree.expression.Expression;
 import org.hibernate.sql.results.graph.DomainResultCreationState;
 
 import java.util.ArrayList;
@@ -127,6 +126,6 @@ public class SelfRenderingSqlFunctionExpression<T> extends SqmFunction<T> {
 
 	@Override
 	public void applySqlSelections(DomainResultCreationState creationState) {
-		//TODO!!!!
+		//implemented on SelfRenderingFunctionSqlAstExpression
 	}
 }
