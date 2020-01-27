@@ -25,6 +25,7 @@ import org.hibernate.metamodel.mapping.AttributeMapping;
 import org.hibernate.metamodel.mapping.BasicValuedMapping;
 import org.hibernate.metamodel.mapping.MappingModelExpressable;
 import org.hibernate.metamodel.mapping.ModelPart;
+import org.hibernate.metamodel.model.domain.AllowableFunctionReturnType;
 import org.hibernate.metamodel.model.domain.AllowableParameterType;
 import org.hibernate.metamodel.model.domain.EntityDomainType;
 import org.hibernate.metamodel.model.domain.internal.CompositeSqmPathSource;
@@ -210,6 +211,7 @@ public abstract class BaseSqmToSqlAstConverter
 
 	private SqmByUnit appliedByUnit;
 	private Expression adjustedTimestamp;
+	private SqmExpressable<?> adjustedTimestampType; //TODO: remove this once we can get a Type directly from adjustedTimestamp
 	private Expression adjustmentScale;
 	private boolean negativeAdjustment;
 
@@ -1474,7 +1476,7 @@ public abstract class BaseSqmToSqlAstConverter
 						toSqlExpression( rightOperand.accept(this) ),
 						//after distributing the 'by unit' operator
 						//we get a Long value back
-						(BasicValuedMapping) appliedByUnit.getNodeType()
+						(BasicValuedMapping) determineValueMapping( appliedByUnit )
 				);
 			}
 			else {
@@ -1482,7 +1484,7 @@ public abstract class BaseSqmToSqlAstConverter
 						toSqlExpression( leftOperand.accept(this) ),
 						expression.getOperator(),
 						toSqlExpression( rightOperand.accept(this) ),
-						(BasicValuedMapping) expression.getNodeType()
+						(BasicValuedMapping) determineValueMapping( expression )
 				);
 			}
 		}
@@ -1534,7 +1536,9 @@ public abstract class BaseSqmToSqlAstConverter
 				// ts - x * (d1 - d2) => (ts - x * d1) + x * d2
 
 				Expression timestamp = adjustedTimestamp;
+				SqmExpressable<?> timestampType = adjustedTimestampType;
 				adjustedTimestamp = toSqlExpression( expression.getLeftHandOperand().accept( this ) );
+				adjustedTimestampType = expression.getNodeType();
 				if (operator == SUBTRACT) {
 					negativeAdjustment = !negativeAdjustment;
 				}
@@ -1546,6 +1550,7 @@ public abstract class BaseSqmToSqlAstConverter
 						negativeAdjustment = !negativeAdjustment;
 					}
 					adjustedTimestamp = timestamp;
+					adjustedTimestampType = timestampType;
 				}
 			case MULTIPLY:
 				// finally, we can multiply a duration on the
@@ -1618,21 +1623,29 @@ public abstract class BaseSqmToSqlAstConverter
 			// the diff, and then the subsequent add
 
 			DurationUnit unit = new DurationUnit( baseUnit, basicType(Integer.class) );
-			Expression scaledMagnitude = applyScale( timestampdiff().expression( unit, right, left ) );
-			return timestampadd().expression( unit, scaledMagnitude, adjustedTimestamp );
+			Expression scaledMagnitude = applyScale( timestampdiff().expression(
+					(AllowableFunctionReturnType<?>) expression.getNodeType(),
+					unit, right, left ) );
+			return timestampadd().expression(
+					(AllowableFunctionReturnType<?>) adjustedTimestampType, //TODO should be adjustedTimestamp.getType()
+					unit, scaledMagnitude, adjustedTimestamp );
 		}
 		else if (appliedByUnit != null) {
 			// we're immediately converting the resulting
 			// duration to a scalar in the given unit
 
 			DurationUnit unit = (DurationUnit) appliedByUnit.getUnit().accept(this);
-			return applyScale( timestampdiff().expression( unit, right, left ) );
+			return applyScale( timestampdiff().expression(
+					(AllowableFunctionReturnType<?>) expression.getNodeType(),
+					unit, right, left ) );
 		}
 		else {
 			// a plain "bare" Duration
 			DurationUnit unit = new DurationUnit( baseUnit, basicType(Integer.class) );
 			BasicValuedMapping durationType = (BasicValuedMapping) expression.getNodeType();
-			Expression scaledMagnitude = applyScale( timestampdiff().expression( unit, right, left)  );
+			Expression scaledMagnitude = applyScale( timestampdiff().expression(
+					(AllowableFunctionReturnType<?>) expression.getNodeType(),
+					unit, right, left)  );
 			return new Duration( scaledMagnitude, baseUnit, durationType );
 		}
 	}
@@ -1745,7 +1758,9 @@ public abstract class BaseSqmToSqlAstConverter
 			if ( appliedByUnit != null ) {
 				throw new IllegalStateException();
 			}
-			return timestampadd().expression( unit, scaledMagnitude, adjustedTimestamp );
+			return timestampadd().expression(
+					(AllowableFunctionReturnType<?>) adjustedTimestampType, //TODO should be adjustedTimestamp.getType()
+					unit, scaledMagnitude, adjustedTimestamp );
 		}
 		else {
 			BasicValuedMapping durationType = (BasicValuedMapping) toDuration.getNodeType();

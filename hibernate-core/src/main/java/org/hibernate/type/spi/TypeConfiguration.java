@@ -473,6 +473,29 @@ public class TypeConfiguration implements SessionFactoryObserver, Serializable {
 			SqmExpressable<?> secondType,
 			boolean isDivision) {
 
+		if ( isTemporalType( firstType ) ) {
+			if ( secondType==null || isTemporalType( secondType ) ) {
+				// special case for subtraction of two dates
+				// or timestamps resulting in a duration
+				return getBasicTypeRegistry().getRegisteredType( Duration.class );
+			}
+			else {
+				// must be postfix addition/subtraction of
+				// a duration to/from a date or timestamp
+				return firstType;
+			}
+		}
+		else if ( isDuration( secondType ) ) {
+			// it's either addition/subtraction of durations
+			// or prefix scalar multiplication of a duration
+			return secondType;
+		}
+		else if ( firstType==null && isTemporalType( secondType ) ) {
+			// subtraction of a date or timestamp from a
+			// parameter (which doesn't have a type yet)
+			return getBasicTypeRegistry().getRegisteredType( Duration.class );
+		}
+
 		if ( isDivision ) {
 			// covered under the note in 6.5.7.1 discussing the unportable
 			// "semantics of the SQL division operation"..

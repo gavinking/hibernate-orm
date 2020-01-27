@@ -36,7 +36,6 @@ public class TimestampaddFunction
 		extends AbstractSqmFunctionDescriptor {
 
 	private Dialect dialect;
-	private AllowableFunctionReturnType<?> impliedResultType;
 
 	public TimestampaddFunction(Dialect dialect) {
 		super(
@@ -53,7 +52,6 @@ public class TimestampaddFunction
 			AllowableFunctionReturnType<T> impliedResultType,
 			QueryEngine queryEngine,
 			TypeConfiguration typeConfiguration) {
-		this.impliedResultType = impliedResultType;
 		SqmExtractUnit<?> field = (SqmExtractUnit<?>) arguments.get(0);
 		SqmExpression<?> to = (SqmExpression<?>) arguments.get(2);
 		return queryEngine.getSqmFunctionRegistry()
@@ -75,7 +73,9 @@ public class TimestampaddFunction
 				);
 	}
 
-	public SelfRenderingFunctionSqlAstExpression expression(SqlAstNode... sqlAstArguments) {
+	public SelfRenderingFunctionSqlAstExpression expression(
+			AllowableFunctionReturnType<?> impliedResultType,
+			SqlAstNode... sqlAstArguments) {
 		DurationUnit field = (DurationUnit) sqlAstArguments[0];
 		Expression to = (Expression) sqlAstArguments[2];
 		return new SelfRenderingFunctionSqlAstExpression(

@@ -36,7 +36,6 @@ public class TimestampdiffFunction
 		extends AbstractSqmFunctionDescriptor {
 
 	private Dialect dialect;
-	private AllowableFunctionReturnType<?> impliedResultType;
 
 	public TimestampdiffFunction(Dialect dialect) {
 		super(
@@ -53,7 +52,6 @@ public class TimestampdiffFunction
 			AllowableFunctionReturnType<T> impliedResultType,
 			QueryEngine queryEngine,
 			TypeConfiguration typeConfiguration) {
-		this.impliedResultType = impliedResultType;
 		SqmExtractUnit<?> field = (SqmExtractUnit<?>) arguments.get(0);
 		SqmExpression<?> from = (SqmExpression<?>) arguments.get(1);
 		SqmExpression<?> to = (SqmExpression<?>) arguments.get(2);
@@ -77,7 +75,9 @@ public class TimestampdiffFunction
 				);
 	}
 
-	public SelfRenderingFunctionSqlAstExpression expression(SqlAstNode... sqlAstArguments) {
+	public SelfRenderingFunctionSqlAstExpression expression(
+			AllowableFunctionReturnType<?> impliedResultType,
+			SqlAstNode... sqlAstArguments) {
 		DurationUnit field = (DurationUnit) sqlAstArguments[0];
 		Expression from = (Expression) sqlAstArguments[1];
 		Expression to = (Expression) sqlAstArguments[2];
