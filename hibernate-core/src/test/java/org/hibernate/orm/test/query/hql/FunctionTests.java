@@ -327,7 +327,6 @@ public class FunctionTests extends SessionFactoryBasedFunctionalTest {
 	}
 
 	@Test
-	@FailureExpected(reason = "needs indirection in positional parameter bindings")
 	public void testPadFunctionParameters(SessionFactoryScope scope) {
 		scope.inTransaction(
 				session -> {
