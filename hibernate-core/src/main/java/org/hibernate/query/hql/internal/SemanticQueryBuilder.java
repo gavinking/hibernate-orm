@@ -2268,6 +2268,34 @@ public class SemanticQueryBuilder extends HqlParserBaseVisitor implements SqmCre
 	}
 
 	@Override
+	public SqmExpression visitCube(HqlParser.CubeContext ctx) {
+		List<SqmTypedNode<?>> args = new ArrayList<>();
+		for ( HqlParser.ExpressionContext arg: ctx.expression() ) {
+			args.add( (SqmExpression) arg.accept( this ) );
+		}
+		//ignore DISTINCT
+		return getFunctionTemplate("cube").makeSqmFunctionExpression(
+				args,
+				(AllowableFunctionReturnType<?>) args.get(0).getExpressableType(), //TODO: this is rubbish
+				creationContext.getQueryEngine()
+		);
+	}
+
+	@Override
+	public SqmExpression visitRollup(HqlParser.RollupContext ctx) {
+		List<SqmTypedNode<?>> args = new ArrayList<>();
+		for ( HqlParser.ExpressionContext arg: ctx.expression() ) {
+			args.add( (SqmExpression) arg.accept( this ) );
+		}
+		//ignore DISTINCT
+		return getFunctionTemplate("rollup").makeSqmFunctionExpression(
+				args,
+				(AllowableFunctionReturnType<?>) args.get(0).getExpressableType(), //TODO: this is rubbish
+				creationContext.getQueryEngine()
+		);
+	}
+
+	@Override
 	public SqmExpression visitMaxFunction(HqlParser.MaxFunctionContext ctx) {
 		final SqmExpression<?> arg = (SqmExpression) ctx.expression().accept( this );
 		//ignore DISTINCT

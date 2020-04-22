@@ -678,6 +678,13 @@ public class CommonFunctionFactory {
 				.register();
 	}
 
+	public static void groupings(QueryEngine queryEngine) {
+		queryEngine.getSqmFunctionRegistry().namedTemplateBuilder("cube")
+				.register();
+		queryEngine.getSqmFunctionRegistry().namedTemplateBuilder("rollup")
+				.register();
+	}
+
 	public static void aggregates(QueryEngine queryEngine) {
 		queryEngine.getSqmFunctionRegistry().namedTemplateBuilder("max")
 				.setExactArgumentCount(1)

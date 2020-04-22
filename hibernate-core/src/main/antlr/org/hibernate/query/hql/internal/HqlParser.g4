@@ -603,6 +603,8 @@ standardFunction
 	|	currentTimeFunction
 	|	currentTimestampFunction
 	|	currentInstantFunction
+	|	cube
+	|	rollup
 	;
 
 
@@ -786,6 +788,14 @@ currentTimestampFunction
 
 currentInstantFunction
 	: CURRENT_INSTANT (LEFT_PAREN RIGHT_PAREN)?
+	;
+
+cube
+	: CUBE (LEFT_PAREN expression (COMMA expression)* RIGHT_PAREN)
+	;
+
+rollup
+	: ROLLUP (LEFT_PAREN expression (COMMA expression)* RIGHT_PAREN)
 	;
 
 extractFunction

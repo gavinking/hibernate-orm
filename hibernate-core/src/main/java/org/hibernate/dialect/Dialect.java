@@ -300,6 +300,10 @@ public abstract class Dialect implements ConversionContext {
 
 		CommonFunctionFactory.aggregates(queryEngine);
 
+		//grouping functions cube() and rollup() supported on some databases
+
+		CommonFunctionFactory.groupings(queryEngine);
+
 		//math functions supported on almost every database
 
 		CommonFunctionFactory.math(queryEngine);
