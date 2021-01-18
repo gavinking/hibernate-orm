@@ -30,7 +30,6 @@ import org.hibernate.internal.util.JdbcExceptionHelper;
 import org.hibernate.metamodel.mapping.EntityMappingType;
 import org.hibernate.metamodel.spi.RuntimeModelCreationContext;
 import org.hibernate.query.CastType;
-import org.hibernate.query.CastTypeKind;
 import org.hibernate.query.TemporalUnit;
 import org.hibernate.query.spi.QueryEngine;
 import org.hibernate.query.sqm.mutation.internal.idtable.AfterUseAction;
@@ -296,7 +295,7 @@ public class DerbyDialect extends Dialect {
 				break;
 			case STRING:
 				// See https://issues.apache.org/jira/browse/DERBY-2072
-				if ( from.getKind() == CastTypeKind.NUMERIC ) {
+				if ( from.isNumeric() ) {
 					// Use the maximum char capacity here as an intermediate type because Derby doesn't support direct conversion to varchar
 					return "cast(cast(?1 as char(254)) as ?2)";
 				}

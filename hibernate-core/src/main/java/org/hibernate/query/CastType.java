@@ -26,24 +26,27 @@ package org.hibernate.query;
  * @author Gavin King
  */
 public enum CastType {
-	STRING(CastTypeKind.TEXT),
-	BOOLEAN(CastTypeKind.BOOLEAN), INTEGER_BOOLEAN(CastTypeKind.NUMERIC), YN_BOOLEAN(CastTypeKind.TEXT), TF_BOOLEAN(CastTypeKind.TEXT),
-	INTEGER(CastTypeKind.NUMERIC), LONG(CastTypeKind.NUMERIC),
-	FLOAT(CastTypeKind.NUMERIC), DOUBLE(CastTypeKind.NUMERIC),
-	FIXED(CastTypeKind.NUMERIC),
-	DATE(CastTypeKind.TEMPORAL), TIME(CastTypeKind.TEMPORAL), TIMESTAMP(CastTypeKind.TEMPORAL),
-	OFFSET_TIMESTAMP(CastTypeKind.TEMPORAL), ZONE_TIMESTAMP(CastTypeKind.TEMPORAL),
-	NULL(null),
-	OTHER(null);
 
-	private final CastTypeKind kind;
+	STRING,
+	BOOLEAN, INTEGER_BOOLEAN, YN_BOOLEAN, TF_BOOLEAN,
+	INTEGER, LONG, FLOAT, DOUBLE, FIXED,
+	DATE, TIME, TIMESTAMP,
+	OFFSET_TIMESTAMP, ZONE_TIMESTAMP,
+	NULL,
+	OTHER;
 
-	CastType(CastTypeKind kind) {
-		this.kind = kind;
-	}
-
-	public CastTypeKind getKind() {
-		return kind;
+	public boolean isNumeric() {
+		switch (this) {
+			case INTEGER:
+			case LONG:
+			case INTEGER_BOOLEAN:
+			case FLOAT:
+			case DOUBLE:
+			case FIXED:
+				return true;
+			default:
+				return false;
+		}
 	}
 
 }
