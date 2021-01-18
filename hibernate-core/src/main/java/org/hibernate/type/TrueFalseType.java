@@ -9,6 +9,7 @@ package org.hibernate.type;
 import java.io.Serializable;
 
 import org.hibernate.dialect.Dialect;
+import org.hibernate.query.CastType;
 import org.hibernate.type.descriptor.java.BooleanTypeDescriptor;
 import org.hibernate.type.descriptor.sql.CharTypeDescriptor;
 import org.hibernate.type.descriptor.sql.SqlTypeDescriptor;
@@ -64,5 +65,10 @@ public class TrueFalseType
 
 		//noinspection unchecked
 		return (BasicType<X>) this;
+	}
+
+	@Override
+	public CastType getCastType() {
+		return CastType.TF_BOOLEAN;
 	}
 }

@@ -6,6 +6,7 @@
  */
 package org.hibernate.metamodel.mapping;
 
+import org.hibernate.query.CastType;
 import org.hibernate.type.descriptor.ValueBinder;
 import org.hibernate.type.descriptor.ValueExtractor;
 import org.hibernate.type.descriptor.java.JavaTypeDescriptor;
@@ -45,5 +46,9 @@ public interface JdbcMapping extends MappingType {
 	@Override
 	default JavaTypeDescriptor getMappedJavaTypeDescriptor() {
 		return getJavaTypeDescriptor();
+	}
+
+	default CastType getCastType() {
+		return getSqlTypeDescriptor().getCastType();
 	}
 }

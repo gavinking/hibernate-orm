@@ -24,7 +24,6 @@ import org.hibernate.type.descriptor.sql.DateTypeDescriptor;
 import org.hibernate.type.descriptor.sql.SqlTypeDescriptor;
 import org.hibernate.type.descriptor.sql.SqlTypeDescriptorIndicators;
 import org.hibernate.type.descriptor.sql.TimeTypeDescriptor;
-import org.hibernate.type.descriptor.sql.TimestampTypeDescriptor;
 import org.hibernate.type.descriptor.sql.TimestampWithTimeZoneDescriptor;
 import org.hibernate.type.spi.TypeConfiguration;
 
