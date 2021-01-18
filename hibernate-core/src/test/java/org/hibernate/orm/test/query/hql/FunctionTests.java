@@ -427,6 +427,21 @@ public class FunctionTests extends SessionFactoryBasedFunctionalTest {
 					assertThat( session.createQuery("select cast(date 1911-10-09 as String)").getSingleResult(), is("1911-10-09") );
 					assertThat( session.createQuery("select cast(time 12:13:14 as String)").getSingleResult(), is("12:13:14") );
 					assertThat( (String) session.createQuery("select cast(datetime 1911-10-09 12:13:14 as String)").getSingleResult(), startsWith("1911-10-09 12:13:14") );
+
+					assertThat( session.createQuery("select cast(1 as NumericBoolean)").getSingleResult(), is(true) );
+					assertThat( session.createQuery("select cast(0 as NumericBoolean)").getSingleResult(), is(false) );
+					assertThat( session.createQuery("select cast(true as YesNo)").getSingleResult(), is(true) );
+					assertThat( session.createQuery("select cast(false as YesNo)").getSingleResult(), is(false) );
+					assertThat( session.createQuery("select cast(1 as YesNo)").getSingleResult(), is(true) );
+					assertThat( session.createQuery("select cast(0 as YesNo)").getSingleResult(), is(false) );
+					assertThat( session.createQuery("select cast(true as TrueFalse)").getSingleResult(), is(true) );
+					assertThat( session.createQuery("select cast(false as TrueFalse)").getSingleResult(), is(false) );
+					assertThat( session.createQuery("select cast(1 as TrueFalse)").getSingleResult(), is(true) );
+					assertThat( session.createQuery("select cast(0 as TrueFalse)").getSingleResult(), is(false) );
+					assertThat( session.createQuery("select cast('Y' as YesNo)").getSingleResult(), is(true) );
+					assertThat( session.createQuery("select cast('N' as YesNo)").getSingleResult(), is(false) );
+					assertThat( session.createQuery("select cast('T' as TrueFalse)").getSingleResult(), is(true) );
+					assertThat( session.createQuery("select cast('F' as TrueFalse)").getSingleResult(), is(false) );
 				}
 		);
 	}
