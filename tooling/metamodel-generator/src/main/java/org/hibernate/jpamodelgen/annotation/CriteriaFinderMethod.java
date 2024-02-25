@@ -128,6 +128,12 @@ public class CriteriaFinderMethod extends AbstractFinderMethod {
 			declaration
 					.append(".getSingleResult()");
 		}
+		else if ( containerType.equals(Constants.OPTIONAL) ) {
+			unwrapQuery( declaration, unwrap );
+			declaration
+					.append("\n\t\t\t")
+					.append(".uniqueResultOptional()");
+		}
 		else if ( containerType.equals(Constants.LIST) ) {
 			if ( unwrap || hasOrderParameter || hasEnabledFetchProfiles ) {
 				declaration.append("\n\t\t\t");
