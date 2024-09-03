@@ -76,6 +76,7 @@ public class PersistenceUnitInfoPropertiesWrapper implements PersistenceUnitInfo
 		return List.of();
 	}
 
+	@SuppressWarnings("removal")
 	public PersistenceUnitTransactionType getTransactionType() {
 		return null;
 	}
