@@ -80,11 +80,12 @@ import static org.hibernate.processor.annotation.QueryMethod.isOrderParam;
 import static org.hibernate.processor.annotation.QueryMethod.isPageParam;
 import static org.hibernate.processor.util.Constants.*;
 import static org.hibernate.processor.util.NullnessUtil.castNonNull;
+import static org.hibernate.processor.util.StringUtil.removeDollar;
 import static org.hibernate.processor.util.TypeUtils.containsAnnotation;
 import static org.hibernate.processor.util.TypeUtils.determineAccessTypeForHierarchy;
 import static org.hibernate.processor.util.TypeUtils.determineAnnotationSpecifiedAccessType;
 import static org.hibernate.processor.util.TypeUtils.extendsClass;
-import static org.hibernate.processor.util.TypeUtils.findMappedSuperClass;
+import static org.hibernate.processor.util.TypeUtils.findMappedSuperElement;
 import static org.hibernate.processor.util.TypeUtils.getAnnotationMirror;
 import static org.hibernate.processor.util.TypeUtils.getAnnotationValue;
 import static org.hibernate.processor.util.TypeUtils.hasAnnotation;
@@ -106,6 +107,8 @@ import static org.hibernate.processor.util.TypeUtils.propertyName;
  * @author Yanming Zhou
  */
 public class AnnotationMetaEntity extends AnnotationMeta {
+
+	private static final String ID_CLASS_MEMBER_NAME = "<ID_CLASS>";
 
 	private final ImportContext importContext;
 	private final TypeElement element;
@@ -163,26 +166,31 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 
 	public AnnotationMetaEntity(
 			TypeElement element, Context context, boolean managed,
-			boolean jakartaDataStaticMetamodel) {
+			boolean jakartaDataStaticMetamodel,
+			@Nullable AnnotationMeta parent) {
 		this.element = element;
 		this.context = context;
 		this.managed = managed;
 		this.members = new HashMap<>();
 		this.quarkusInjection = context.isQuarkusInjection();
-		this.importContext = new ImportContextImpl( getPackageName( context, element ) );
+		this.importContext = parent != null ? parent : new ImportContextImpl( getPackageName( context, element ) );
 		jakartaDataStaticModel = jakartaDataStaticMetamodel;
 	}
 
 	public static AnnotationMetaEntity create(TypeElement element, Context context) {
-		return create( element,context, false, false, false );
+		return create( element,context, false, false, false, null );
 	}
 
 	public static AnnotationMetaEntity create(
 			TypeElement element, Context context,
 			boolean lazilyInitialised, boolean managed,
-			boolean jakartaData) {
+			boolean jakartaData,
+			@Nullable AnnotationMetaEntity parent) {
 		final AnnotationMetaEntity annotationMetaEntity =
-				new AnnotationMetaEntity( element, context, managed, jakartaData );
+				new AnnotationMetaEntity( element, context, managed, jakartaData, parent );
+		if ( parent != null ) {
+			parent.addInnerClass( annotationMetaEntity );
+		}
 		if ( !lazilyInitialised ) {
 			annotationMetaEntity.init();
 		}
@@ -225,18 +233,6 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 		return getSimpleName() + '_';
 	}
 
-	/**
-	 * If this is an "intermediate" class providing {@code @Query}
-	 * annotations for the query by magical method name crap, then
-	 * by convention it will be named with a trailing $ sign. Strip
-	 * that off, so we get the standard constructor.
-	 */
-	private static String removeDollar(String simpleName) {
-		return simpleName.endsWith("$")
-				? simpleName.substring(0, simpleName.length()-1)
-				: simpleName;
-	}
-
 	@Override
 	public final String getQualifiedName() {
 		if ( qualifiedName == null ) {
@@ -246,8 +242,8 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 	}
 
 	@Override
-	public @Nullable String getSupertypeName() {
-		return repository ? null : findMappedSuperClass( this, context );
+	public @Nullable Element getSuperTypeElement() {
+		return repository ? null : findMappedSuperElement( this, context );
 	}
 
 	@Override
@@ -268,6 +264,11 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 			}
 		}
 		return new ArrayList<>( members.values() );
+	}
+
+	public void addInnerClass(AnnotationMetaEntity metaEntity) {
+		putMember( "INNER_" + metaEntity.getQualifiedName(),
+				new InnerClassMetaAttribute( metaEntity ) );
 	}
 
 	@Override
@@ -363,7 +364,7 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 				.toString();
 	}
 
-	protected final void init() {
+	protected void init() {
 		getContext().logMessage( Diagnostic.Kind.OTHER, "Initializing type '" + getQualifiedName() + "'" );
 
 		setupSession();
@@ -439,6 +440,8 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 
 			addPersistentMembers( fieldsOfClass, AccessType.FIELD );
 			addPersistentMembers( gettersAndSettersOfClass, AccessType.PROPERTY );
+
+			addIdClassIfNeeded( fieldsOfClass, gettersAndSettersOfClass );
 		}
 
 		addAuxiliaryMembers();
@@ -450,6 +453,33 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 		addQueryMethods( queryMethods );
 
 		initialized = true;
+	}
+
+	private void addIdClassIfNeeded(List<? extends Element> fields, List<? extends Element> methods) {
+		if ( hasAnnotation( element, ID_CLASS ) ) {
+			return;
+		}
+		final List<MetaAttribute> components = new ArrayList<>();
+		for ( Element field : fields ) {
+			if ( hasAnnotation( field, ID ) && isPersistent( field, AccessType.FIELD ) ) {
+				final String propertyName = propertyName( this, field );
+				if ( members.containsKey( propertyName ) ) {
+					components.add( members.get( propertyName ) );
+				}
+			}
+		}
+		for ( Element method : methods ) {
+			if ( hasAnnotation( method, ID ) && isPersistent( method, AccessType.PROPERTY ) ) {
+				final String propertyName = propertyName( this, method );
+				if ( members.containsKey( propertyName ) ) {
+					components.add( members.get( propertyName ) );
+				}
+			}
+		}
+		if ( components.size() < 2 ) {
+			return;
+		}
+		putMember( ID_CLASS_MEMBER_NAME, new IdClassMetaAttribute( this, components ) );
 	}
 
 	private boolean checkEntities(List<ExecutableElement> lifecycleMethods) {
@@ -2235,11 +2265,8 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 		}
 
 		final AnnotationValue value = getAnnotationValue( mirror, "value" );
-		if ( value != null ) {
-			final Object queryString = value.getValue();
-			if ( queryString instanceof String ) {
-				addQueryMethod(method, returnType, containerTypeName, mirror, isNative, value, (String) queryString);
-			}
+		if ( value != null && value.getValue() instanceof String queryString ) {
+			addQueryMethod( method, returnType, containerTypeName, mirror, isNative, value, queryString );
 		}
 	}
 
@@ -2389,8 +2416,7 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 		else {
 			final HqlLexer hqlLexer = HqlParseTreeBuilder.INSTANCE.buildHqlLexer( hql );
 			final List<? extends Token> allTokens = hqlLexer.getAllTokens();
-			for (int i = 0; i < allTokens.size(); i++) {
-				final Token token = allTokens.get(i);
+			for ( final Token token : allTokens ) {
 				switch ( token.getType() ) {
 					case FROM:
 						return hql;
@@ -2447,11 +2473,11 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 						true,
 						new ErrorHandler( context, isLocal(method) ? method : element, mirror, value, hql ),
 						ProcessorSessionFactory.create( context.getProcessingEnvironment(),
-								context.getEntityNameMappings(), context.getEnumTypesByValue() )
+								context.getEntityNameMappings(), context.getEnumTypesByValue(), context.isIndexing() )
 				);
 		if ( statement != null ) {
-			if ( statement instanceof SqmSelectStatement ) {
-				validateSelectHql( method, returnType, mirror, value, (SqmSelectStatement<?>) statement );
+			if ( statement instanceof SqmSelectStatement<?> selectStatement ) {
+				validateSelectHql( method, returnType, mirror, value, selectStatement );
 			}
 			else {
 				validateUpdateHql( method, returnType, mirror, value );
@@ -2652,12 +2678,11 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 
 	private static boolean parameterMatches(VariableElement parameter, JpaSelection<?> item) {
 		final Class<?> javaType = item.getJavaType();
-		return javaType != null && parameterMatches( parameter.asType(), javaType );
+		return javaType != null && parameterMatches( parameter.asType(), javaType, item.getJavaTypeName() );
 	}
 
-	private static boolean parameterMatches(TypeMirror parameterType, Class<?> itemType) {
+	private static boolean parameterMatches(TypeMirror parameterType, Class<?> itemType, String itemTypeName) {
 		final TypeKind kind = parameterType.getKind();
-		final String itemTypeName = itemType.getName();
 		if ( kind == TypeKind.DECLARED ) {
 			final DeclaredType declaredType = (DeclaredType) parameterType;
 			final TypeElement paramTypeElement = (TypeElement) declaredType.asElement();
@@ -2669,7 +2694,7 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 		else if ( kind == TypeKind.ARRAY ) {
 			final ArrayType arrayType = (ArrayType) parameterType;
 			return itemType.isArray()
-				&& parameterMatches( arrayType.getComponentType(), itemType.getComponentType() );
+				&& parameterMatches( arrayType.getComponentType(), itemType.getComponentType(), itemType.getComponentType().getTypeName() );
 		}
 		else {
 			return false;

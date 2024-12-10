@@ -41,7 +41,6 @@ import static org.hibernate.cfg.JdbcSettings.ISOLATION;
 import static org.hibernate.cfg.JdbcSettings.POOL_SIZE;
 import static org.hibernate.cfg.JdbcSettings.URL;
 import static org.hibernate.cfg.JdbcSettings.USER;
-import static org.hibernate.cfg.ProxoolSettings.PROXOOL_CONFIG_PREFIX;
 import static org.hibernate.cfg.SchemaToolingSettings.ENABLE_SYNONYMS;
 import static org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentImpl.isMultiTenancyEnabled;
 import static org.hibernate.internal.util.StringHelper.nullIfEmpty;
@@ -67,19 +66,9 @@ public class ConnectionProviderInitiator implements StandardServiceInitiator<Con
 	public static final String C3P0_STRATEGY = "c3p0";
 
 	/**
-	 * The strategy for proxool connection pooling
-	 */
-	public static final String PROXOOL_STRATEGY = "proxool";
-
-	/**
 	 * The strategy for hikari connection pooling
 	 */
 	public static final String HIKARI_STRATEGY = "hikari";
-
-	/**
-	 * The strategy for vibur connection pooling
-	 */
-	public static final String VIBUR_STRATEGY = "vibur";
 
 	/**
 	 * The strategy for oracle ucp connection pooling
@@ -162,14 +151,8 @@ public class ConnectionProviderInitiator implements StandardServiceInitiator<Con
 		else if ( hasConfiguration( configurationValues, C3P0_CONFIG_PREFIX ) ) {
 			return instantiateProvider( strategySelector, C3P0_STRATEGY );
 		}
-		else if (hasConfiguration( configurationValues, PROXOOL_CONFIG_PREFIX )) {
-			return instantiateProvider( strategySelector, PROXOOL_STRATEGY );
-		}
 		else if ( hasConfiguration( configurationValues, HIKARI_CONFIG_PREFIX ) ) {
 			return instantiateProvider( strategySelector, HIKARI_STRATEGY );
-		}
-		else if ( hasConfiguration( configurationValues, "hibernate.vibur" ) ) {
-			return instantiateProvider( strategySelector, VIBUR_STRATEGY );
 		}
 		else if (hasConfiguration( configurationValues, "hibernate.oracleucp" ) ) {
 			return instantiateProvider( strategySelector, UCP_STRATEGY );

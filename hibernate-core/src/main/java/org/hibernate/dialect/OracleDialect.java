@@ -149,7 +149,10 @@ import static org.hibernate.type.SqlTypes.VARCHAR;
 import static org.hibernate.type.descriptor.DateTimeUtils.appendAsTimestampWithNanos;
 
 /**
- * A {@linkplain Dialect SQL dialect} for Oracle 11g Release 2 and above.
+ * A {@linkplain Dialect SQL dialect} for Oracle 19c and above.
+ * <p>
+ * Please refer to the
+ * <a href="https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/">Oracle documentation</a>.
  *
  * @author Steve Ebersole
  * @author Gavin King
@@ -440,6 +443,10 @@ public class OracleDialect extends Dialect {
 		functionFactory.unnest_oracle();
 		functionFactory.generateSeries_recursive( getMaximumSeriesSize(), true, false );
 		functionFactory.jsonTable_oracle();
+
+		functionFactory.hex( "rawtohex(?1)" );
+		functionFactory.sha( "standard_hash(?1, 'SHA256')" );
+		functionFactory.md5( "standard_hash(?1, 'MD5')" );
 	}
 
 	/**

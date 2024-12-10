@@ -552,13 +552,11 @@ abstract public class DialectFeatureChecks {
 	public static class SupportsMedian implements DialectFeatureCheck {
 		public boolean apply(Dialect dialect) {
 			dialect = DialectDelegateWrapper.extractRealDialect( dialect );
-			return !( dialect instanceof MySQLDialect
+			return !( dialect instanceof MySQLDialect && !(dialect instanceof MariaDBDialect)
 					|| dialect instanceof SybaseDialect
 					|| dialect instanceof DerbyDialect
 					|| dialect instanceof FirebirdDialect
-					|| dialect instanceof DB2Dialect && ( (DB2Dialect) dialect ).getDB2Version().isBefore( 11 ) )
-					|| dialect instanceof InformixDialect
-					|| dialect instanceof MariaDBDialect;
+					|| dialect instanceof DB2Dialect && ( (DB2Dialect) dialect ).getDB2Version().isBefore( 11 ) );
 		}
 	}
 
@@ -1057,6 +1055,21 @@ abstract public class DialectFeatureChecks {
 	public static boolean definesSetReturningFunction(Dialect dialect, String functionName) {
 		return getSqmFunctionRegistry( dialect ).findSetReturningFunctionDescriptor( functionName ) != null;
 	}
+
+	public static class SupportsSubqueryInSelect implements DialectFeatureCheck {
+		@Override
+		public boolean apply(Dialect dialect) {
+			return dialect.supportsSubqueryInSelect();
+		}
+	}
+
+	public static class SupportSubqueryAsLeftHandSideInPredicate implements DialectFeatureCheck {
+		@Override
+		public boolean apply(Dialect dialect) {
+			return dialect.supportsSubselectAsInPredicateLHS();
+		}
+	}
+
 
 	private static SqmFunctionRegistry getSqmFunctionRegistry(Dialect dialect) {
 		SqmFunctionRegistry sqmFunctionRegistry = FUNCTION_REGISTRIES.get( dialect );

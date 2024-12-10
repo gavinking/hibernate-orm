@@ -141,7 +141,10 @@ import static org.hibernate.type.descriptor.DateTimeUtils.appendAsTimestampWithM
 import static org.hibernate.type.descriptor.DateTimeUtils.appendAsTimestampWithMillis;
 
 /**
- * A {@linkplain Dialect SQL dialect} for PostgreSQL 11 and above.
+ * A {@linkplain Dialect SQL dialect} for PostgreSQL 12 and above.
+ * <p>
+ * Please refer to the
+ * <a href="https://www.postgresql.org/docs/current/index.html">PostgreSQL documentation</a>.
  *
  * @author Gavin King
  */
@@ -550,7 +553,6 @@ public class PostgreSQLDialect extends Dialect {
 		functionFactory.pi();
 		functionFactory.trim2();
 		functionFactory.repeat();
-		functionFactory.md5();
 		functionFactory.initcap();
 		functionFactory.substr();
 		functionFactory.substring_substr();
@@ -690,6 +692,10 @@ public class PostgreSQLDialect extends Dialect {
 			functionFactory.unnest_postgresql();
 		}
 		functionFactory.generateSeries( null, "ordinality", false );
+
+		functionFactory.hex( "encode(?1, 'hex')" );
+		functionFactory.sha( "sha256(?1)" );
+		functionFactory.md5( "decode(md5(?1), 'hex')" );
 	}
 
 	@Override

@@ -107,6 +107,8 @@ public final class Context {
 	private String[] includes = {"*"};
 	private String[] excludes = {};
 
+	private boolean indexing = true;
+
 	private final Map<String, String> entityNameMappings = new HashMap<>();
 	private final Map<String, Set<String>> enumTypesByValue = new HashMap<>();
 
@@ -302,6 +304,15 @@ public final class Context {
 
 	public Collection<Metamodel> getDataMetaEmbeddables() {
 		return dataMetaEmbeddables.values();
+	}
+
+	public @Nullable Metamodel getMetamodel(String qualifiedName) {
+		if ( metaEntities.containsKey( qualifiedName ) ) {
+			return metaEntities.get( qualifiedName );
+		}
+		else {
+			return metaEmbeddables.get( qualifiedName );
+		}
 	}
 
 	public @Nullable Metamodel getMetaAuxiliary(String qualifiedName) {
@@ -541,5 +552,13 @@ public final class Context {
 			}
 		}
 		return null;
+	}
+
+	public void setIndexing(boolean index) {
+		this.indexing = index;
+	}
+
+	public boolean isIndexing() {
+		return indexing;
 	}
 }

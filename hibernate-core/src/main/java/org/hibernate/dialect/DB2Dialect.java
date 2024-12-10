@@ -128,7 +128,10 @@ import static org.hibernate.type.descriptor.DateTimeUtils.appendAsTimestampWithM
 import static org.hibernate.type.descriptor.DateTimeUtils.appendAsTimestampWithNanos;
 
 /**
- * A {@linkplain Dialect SQL dialect} for DB2 for LUW (Linux, Unix, and Windows) version 10.5 and above.
+ * A {@linkplain Dialect SQL dialect} for Db2 for LUW (Linux, Unix, and Windows) version 10.5 and above.
+ * <p>
+ * Please refer to the
+ * <a href="https://www.ibm.com/docs/en/db2/12.1">Db2 documentation</a>.
  *
  * @author Gavin King
  *
@@ -452,6 +455,10 @@ public class DB2Dialect extends Dialect {
 
 		functionFactory.unnest_db2( getMaximumSeriesSize() );
 		functionFactory.generateSeries_recursive( getMaximumSeriesSize(), false, true );
+
+		functionFactory.hex( "hex(?1)" );
+		functionFactory.sha( "hash(?1, 2)" );
+		functionFactory.md5( "hash(?1, 0)" );
 	}
 
 	/**
