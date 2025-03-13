@@ -66,6 +66,7 @@ public class StatisticsImpl implements StatisticsImplementor, Service {
 
 	private final LongAdder entityLoadCount = new LongAdder();
 	private final LongAdder entityUpdateCount = new LongAdder();
+	private final LongAdder entityUpsertCount = new LongAdder();
 	private final LongAdder entityInsertCount = new LongAdder();
 	private final LongAdder entityDeleteCount = new LongAdder();
 	private final LongAdder entityFetchCount = new LongAdder();
@@ -133,7 +134,7 @@ public class StatisticsImpl implements StatisticsImplementor, Service {
 				20
 		);
 		resetStart();
-		metamodel = sessionFactory.getRuntimeMetamodels().getMappingMetamodel();
+		metamodel = sessionFactory.getMappingMetamodel();
 		cache = sessionFactory.getCache();
 		secondLevelCacheEnabled = sessionFactoryOptions.isSecondLevelCacheEnabled();
 		queryCacheEnabled = sessionFactoryOptions.isQueryCacheEnabled();
@@ -174,6 +175,7 @@ public class StatisticsImpl implements StatisticsImplementor, Service {
 		entityDeleteCount.reset();
 		entityInsertCount.reset();
 		entityUpdateCount.reset();
+		entityUpsertCount.reset();
 		entityLoadCount.reset();
 		entityFetchCount.reset();
 
@@ -281,6 +283,11 @@ public class StatisticsImpl implements StatisticsImplementor, Service {
 	}
 
 	@Override
+	public long getEntityUpsertCount() {
+		return entityUpsertCount.sum();
+	}
+
+	@Override
 	public long getOptimisticFailureCount() {
 		return optimisticFailureCount.sum();
 	}
@@ -301,6 +308,12 @@ public class StatisticsImpl implements StatisticsImplementor, Service {
 	public void updateEntity(String entityName) {
 		entityUpdateCount.increment();
 		getEntityStatistics( entityName ).incrementUpdateCount();
+	}
+
+	@Override
+	public void upsertEntity(String entityName) {
+		entityUpsertCount.increment();
+		getEntityStatistics( entityName ).incrementUpsertCount();
 	}
 
 	@Override
@@ -724,8 +737,6 @@ public class StatisticsImpl implements StatisticsImplementor, Service {
 
 	@Override
 	public void queryCacheHit(String hql, String regionName) {
-		log.tracef( "Statistics#queryCacheHit( `%s`, `%s` )", hql, regionName );
-
 		queryCacheHitCount.increment();
 
 		getQueryRegionStats( regionName ).incrementHitCount();
@@ -737,8 +748,6 @@ public class StatisticsImpl implements StatisticsImplementor, Service {
 
 	@Override
 	public void queryCacheMiss(String hql, String regionName) {
-		log.tracef( "Statistics#queryCacheMiss( `%s`, `%s` )", hql, regionName );
-
 		queryCacheMissCount.increment();
 
 		getQueryRegionStats( regionName ).incrementMissCount();
@@ -750,8 +759,6 @@ public class StatisticsImpl implements StatisticsImplementor, Service {
 
 	@Override
 	public void queryCachePut(String hql, String regionName) {
-		log.tracef( "Statistics#queryCachePut( `%s`, `%s` )", hql, regionName );
-
 		queryCachePutCount.increment();
 
 		getQueryRegionStats( regionName ).incrementPutCount();
@@ -907,6 +914,7 @@ public class StatisticsImpl implements StatisticsImplementor, Service {
 				entityLoadCount.sum(),
 				entityFetchCount.sum(),
 				entityUpdateCount.sum(),
+				entityUpsertCount.sum(),
 				entityInsertCount.sum(),
 				entityDeleteCount.sum(),
 				collectionLoadCount.sum(),
@@ -950,6 +958,7 @@ public class StatisticsImpl implements StatisticsImplementor, Service {
 				",second level cache misses=" + secondLevelCacheMissCount +
 				",entities loaded=" + entityLoadCount +
 				",entities updated=" + entityUpdateCount +
+				",entities upserted=" + entityUpsertCount +
 				",entities inserted=" + entityInsertCount +
 				",entities deleted=" + entityDeleteCount +
 				",entities fetched=" + entityFetchCount +

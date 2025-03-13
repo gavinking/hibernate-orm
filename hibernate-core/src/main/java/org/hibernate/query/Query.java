@@ -26,6 +26,7 @@ import org.hibernate.SharedSessionContract;
 import org.hibernate.dialect.Dialect;
 import org.hibernate.graph.GraphSemantic;
 import org.hibernate.graph.RootGraph;
+import org.hibernate.query.restriction.Restriction;
 import org.hibernate.query.spi.QueryOptions;
 import org.hibernate.transform.ResultTransformer;
 
@@ -227,24 +228,24 @@ public interface Query<R> extends SelectionQuery<R>, MutationQuery, TypedQuery<R
 	 * {@link QueryProducer#createMutationQuery(String)},
 	 * {@link QueryProducer#createNamedMutationQuery(String)},
 	 * {@link QueryProducer#createNativeMutationQuery(String)},
-	 * {@link QueryProducer#createQuery(jakarta.persistence.criteria.CriteriaUpdate)}, or
-	 * {@link QueryProducer#createQuery(jakarta.persistence.criteria.CriteriaDelete)}.
+	 * {@link QueryProducer#createMutationQuery(jakarta.persistence.criteria.CriteriaUpdate)}, or
+	 * {@link QueryProducer#createMutationQuery(jakarta.persistence.criteria.CriteriaDelete)}.
 	 *
 	 * @return the number of affected entity instances
 	 *         (may differ from the number of affected rows)
-	 *
-	 * @see QueryProducer#createMutationQuery
-	 * @see QueryProducer#createMutationQuery(String)
-	 * @see QueryProducer#createNamedMutationQuery(String)
-	 * @see QueryProducer#createNativeMutationQuery(String)
-	 *
-	 * @see jakarta.persistence.Query#executeUpdate()
 	 *
 	 * @apiNote This method is needed because this interface extends
 	 *          {@link jakarta.persistence.Query}, which defines this method.
 	 *          See {@link MutationQuery} and {@link SelectionQuery}.
 	 *
 	 * @see QueryProducer#createMutationQuery
+	 * @see QueryProducer#createMutationQuery(String)
+	 * @see QueryProducer#createNamedMutationQuery(String)
+	 * @see QueryProducer#createNativeMutationQuery(String)
+	 * @see QueryProducer#createMutationQuery(jakarta.persistence.criteria.CriteriaUpdate)
+	 * @see QueryProducer#createMutationQuery(jakarta.persistence.criteria.CriteriaDelete)
+	 *
+	 * @see jakarta.persistence.Query#executeUpdate()
 	 */
 	@Override
 	int executeUpdate();
@@ -269,7 +270,11 @@ public interface Query<R> extends SelectionQuery<R>, MutationQuery, TypedQuery<R
 	 *
 	 * @param graph The graph to apply.
 	 * @param semantic The semantic to use when applying the graph
+	 *
+	 * @deprecated Use {@link #setEntityGraph(EntityGraph, GraphSemantic)}
+	 *             which is more type safe
 	 */
+	@Deprecated(since = "7.0")
 	Query<R> applyGraph(@SuppressWarnings("rawtypes") RootGraph graph, GraphSemantic semantic);
 
 	/**
@@ -277,7 +282,11 @@ public interface Query<R> extends SelectionQuery<R>, MutationQuery, TypedQuery<R
 	 *
 	 * @apiNote This method calls {@link #applyGraph(RootGraph, GraphSemantic)}
 	 *          using {@link GraphSemantic#FETCH} as the semantic.
+	 *
+	 * @deprecated Use {@link #setEntityGraph(EntityGraph, GraphSemantic)}
+	 *             which is more type safe
 	 */
+	@Deprecated(since = "7.0")
 	default Query<R> applyFetchGraph(@SuppressWarnings("rawtypes") RootGraph graph) {
 		return applyGraph( graph, GraphSemantic.FETCH );
 	}
@@ -287,7 +296,11 @@ public interface Query<R> extends SelectionQuery<R>, MutationQuery, TypedQuery<R
 	 *
 	 * @apiNote This method calls {@link #applyGraph(RootGraph, GraphSemantic)}
 	 *          using {@link GraphSemantic#LOAD} as the semantic.
+	 *
+	 * @deprecated Use {@link #setEntityGraph(EntityGraph, GraphSemantic)}
+	 *             which is more type safe
 	 */
+	@Deprecated(since = "7.0")
 	default Query<R> applyLoadGraph(@SuppressWarnings("rawtypes") RootGraph graph) {
 		return applyGraph( graph, GraphSemantic.LOAD );
 	}
@@ -884,7 +897,7 @@ public interface Query<R> extends SelectionQuery<R>, MutationQuery, TypedQuery<R
 	// covariant overrides - jakarta.persistence.Query/TypedQuery
 
 	@Override
-	Query<R> setMaxResults(int maxResult);
+	Query<R> setMaxResults(int maxResults);
 
 	@Override
 	Query<R> setFirstResult(int startPosition);
@@ -926,6 +939,9 @@ public interface Query<R> extends SelectionQuery<R>, MutationQuery, TypedQuery<R
 
 	@Override @Incubating
 	Query<R> setOrder(Order<? super R> order);
+
+	@Override @Incubating
+	Query<R> addRestriction(Restriction<? super R> restriction);
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	// deprecated methods

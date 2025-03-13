@@ -41,7 +41,7 @@ public class DdlTransactionIsolatorJtaImpl implements DdlTransactionIsolator {
 			if ( tm == null ) {
 				throw new HibernateException(
 						"DdlTransactionIsolatorJtaImpl could not locate TransactionManager to suspend any current transaction; " +
-								"base JtaPlatform impl (" + jtaPlatform.toString() + ")?"
+						"base JtaPlatform impl (" + jtaPlatform + ")?"
 				);
 			}
 			log.tracef( "DdlTransactionIsolatorJtaImpl#prepare: TransactionManager -> %s", tm );
@@ -81,7 +81,7 @@ public class DdlTransactionIsolatorJtaImpl implements DdlTransactionIsolator {
 				}
 			}
 			catch (SQLException e) {
-				throw jdbcContext.getSqlExceptionHelper().convert( e, "Unable set JDBC Connection for DDL execution to autocommit" );
+				throw jdbcContext.getSqlExceptionHelper().convert( e, "Unable to set JDBC Connection for DDL execution to autocommit" );
 			}
 		}
 		return jdbcConnection;

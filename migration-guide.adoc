@@ -15,12 +15,12 @@ earlier versions, see any other pertinent migration guides as well.
 
 7.0 migrates to Jakarta Persistence 3.2 which is fairly disruptive, mainly around:
 
-* type parameters
+* Type parameters:
   ** Affects much of the Criteria API - especially roots, joins, paths
   ** Affects much of the Graph API -
-    *** org.hibernate.graph.Graph.addAttributeNode(java.lang.String) defines a return while
+    *** `org.hibernate.graph.Graph.addAttributeNode(java.lang.String)` defines a return while
                 `jakarta.persistence.Graph.addAttributeNode(java.lang.String)` does not.
-* new JPA features colliding with previous Hibernate extension features
+* New JPA features colliding with previous Hibernate extension features:
   ** `Nulls` (JPA) v. `NullPrecedence` (Hibernate), including JPA's new `Order#getNullPrecedence()` returning `Nulls`
         colliding with Hibernate's `SqmSortSpecification#getNullPrecedence` returning `NullPrecedence`.  Hibernate's form
         was renamed to `SqmSortSpecification#getHibernateNullPrecedence` to avoid the collision.
@@ -32,6 +32,28 @@ earlier versions, see any other pertinent migration guides as well.
   ** `Transaction#getTimeout`.  JPA 3.2 adds `#getTimeout` but uses `Integer` whereas Hibernate has historically used `int`.  Note that this raises the possibility of a `NullPointerException` during migration if, e.g., performing direct comparisons on the timeout value against an in (auto unboxing).
 
 See this https://in.relation.to/2024/04/01/jakarta-persistence-3/[blog post] for a good discussion of the changes in Jakarta Persistence 3.2.
+
+
+[[NamedEntityGraph]]
+== @NamedEntityGraph
+
+A new annotation (`@org.hibernate.annotations.NamedEntityGraph`) has been added to allow
+specifying a named entity-graph using Hibernate's ability to parse a string representation of the graph.
+
+
+[source,java]
+----
+@Entity
+@NamedEntityGraph( graph="title, isbn, author( name, phoneNumber )" )
+class Book {
+	// ...
+}
+----
+
+
+See `org.hibernate.graph.GraphParser` for details on the syntax and the
+link:{user-guide-url}#fetching-strategies-dynamic-fetching-entity-graph-parsing-annotation[user guide] for additional details.
+
 
 
 [[hibernate-models]]
@@ -86,18 +108,19 @@ private Employee manager;
 === Misplaced Annotations
 
 7.0 does much more in-depth checking that annotations appear in the proper place.  While previous versions
-did not necessarily throw errors, in most cases these annotations were simply ignored.  E.g.
+did not necessarily throw errors, in most cases these annotations were simply ignored.
 
+For example, this code now results in an error:
 
 [source,java]
 ----
 @Entity
 class Book {
-	// defines FIELD access-type
+    // specifies FIELD access, properties should not be annotated
     @Id
     Integer id;
 
-	// previously ignored, this is an error now
+    // previously ignored, this is an error now
     @Column(name="category")
     String getType() { ... }
 }
@@ -114,13 +137,60 @@ versions did not validate this particularly well.
 [[java-beans]]
 === JavaBean Conventions
 
-Previous versions allowed some questionable (at best) attribute naming patterns.  These are no longer supported.  E.g.
+Previous versions allowed some questionable (at best) attribute naming patterns.
+For example, this property declaration is no longer allowed:
 
 [source,java]
 ----
 @Basic
 String isDefault();
 ----
+
+[[soft-delete-timestamp]]
+== @SoftDelete with TIMESTAMP
+
+Soft-delete now supports the strategy of tracking the timestamp at which the soft-delete occurred,
+in addition to the previous truth-based strategies.
+See the link:{user-guide-url}#soft-delete[User Guide] for details.
+
+
+[[embedded-column-naming]]
+== @EmbeddedColumnNaming
+
+A long requested feature for both Hibernate and Jakarta Persistence has been the ability to
+define a prefix for the names of columns associated with an embedded value.
+
+7.0 adds support for this using the new `@EmbeddedColumnNaming` annotation.  The annotation
+accepts a format pattern, so is a little more flexible than just a prefix.
+
+Consider a typical Person / Address composition:
+
+[source,java]
+----
+@Embeddable
+class Address {
+    String street;
+	String city;
+	...
+}
+
+@Entity
+class Person {
+	...
+
+    @Embedded
+    @EmbeddedColumnNaming("home_%")
+    Address homeAddress;
+
+    @Embedded
+    @EmbeddedColumnNaming("work_%")
+    Address workAddress;
+
+}
+----
+
+This triggers Hibernate to use the column names `home_street`, `home_city`, `work_street`, ...
+
 
 [[envers-rev-types]]
 == Hibernate Envers and custom revision entities
@@ -204,16 +274,16 @@ Applications will need to replace usages of the removed `@Proxy` annotation.
 
 `@Proxy#proxyClass` has no direct replacement, but was also never needed/useful.
 
-Here we focus on `@Proxy#laxy` attribute which, again, was hardly ever useful.
+Here we focus on `@Proxy#lazy` attribute which, again, was hardly ever useful.
 By default (true), Hibernate would proxy an entity when possible and when asked for.
 "Asked for" includes calls to `Session#getReference` and lazy associations.
 All such cases though are already controllable by the application.
 
 * Instead of `Session#getReference`, use `Session#find`
-* Use eager associations, using
-** `FetchType.EAGER` (the default for to-one associations anyway), possibly combined with `@Fetch`
-** `EntityGraph`
-** `@FetchProfiles`
+* Use eager association fetching, for example,
+** `FetchType.EAGER` (the default for to-one associations anyway), possibly combined with `@Fetch`,
+** `EntityGraph`, or a
+** `@FetchProfile`.
 
 The effect can also often be mitigated using Hibernate's bytecode-based laziness (possibly combined with `@ConcreteProxy`).
 
@@ -310,8 +380,8 @@ The previous behavior may be recovered by setting `hibernate.query.native.prefer
 [[ddl-implicit-datatype-timestamp]]
 == Default precision for `timestamp` on some databases
 
-The default precision for Oracle timestamps was changed to 9 i.e. nanosecond precision.
-The default precision for SQL Server timestamps was changed to 7 i.e. 100 nanosecond precision.
+The default precision for Oracle timestamps was changed to 9, i.e. nanosecond precision.
+The default precision for SQL Server timestamps was changed to 7, i.e. 100 nanosecond precision.
 
 Note that these changes only affect DDL generation.
 
@@ -339,12 +409,12 @@ The migration requires to read data and re-save it.
 To retain backwards compatibility, configure the setting `hibernate.type.preferred_array_jdbc_type` to `VARBINARY`.
 
 [[xml-format-mapper-changes]]
-== XML FormatMapper changes
+== XML `FormatMapper` changes
 
 Previous versions of Hibernate ORM used an undefined/provider-specific format for serialization/deserialization of
-collections, maps and byte arrays to/from XML, which is not portable.
+collections, maps and byte arrays to/from XML, which was not portable.
 
-XML FormatMapper implementations were changed to now use a portable format for collections, maps and byte arrays.
+XML `FormatMapper` implementations now use a portable format for collections, maps, and byte arrays.
 This change is necessary to allow mapping basic arrays as `SqlTypes.XML_ARRAY`.
 
 The migration requires to read data and re-save it.
@@ -365,7 +435,7 @@ To align with Jakarta Persistence (the 3.2 TCK tests this), Hibernate now consid
 
 However, because `hibernate.session_factory_name` is also a trigger to attempt to bind the SessionFactory into JNDI,
 this change to consider persistence-unit name, means that each `SessionFactory` created through Jakarta Persistence now
-have a name and Hibernate attempted to bind these to JNDI.
+has a name and Hibernate attempts to bind it to JNDI.
 
 To work around this we have introduced a new `hibernate.session_factory_jndi_name` setting that can be used to explicitly
 specify a name for JNDI binding.  The new behavior is as follows (assuming `hibernate.session_factory_name_is_jndi` is not explicitly configured):
@@ -380,6 +450,19 @@ must be explicitly set to true.
 == Configurable generators
 
 The signature of the `Configurable#configure` method changed from accepting just a `ServiceRegistry` instance to the new `GeneratorCreationContext` interface, which exposes a lot more useful information when configuring the generator itself. The old signature has been deprecated for removal, so you should migrate any custom `Configurable` generator implementation to the new one.
+
+[[stateless-session-cache]]
+== `StatelessSession` and second-level cache
+
+Previously, stateless sessions never interacted with the second-level cache.
+This reflected their original intended role in bulk processing.
+With the advent of Jakarta Data and Hibernate Data Repositories, the responsibilities of `StatelessSession` have now expanded, and this behavior is no longer appropriate.
+
+Thus, a stateless session now makes use of the second-level cache by default.
+To completely bypass the second-level cache, recovering the previous behavior, call `setCacheMode(CacheMode.IGNORE)`.
+
+It's often important to explicitly disable puts to the second-level cache in code which performs bulk processing.
+Set the cache mode to `GET` or configure `jakarta.persistence.cache.storeMode` to `BYPASS`.
 
 [[stateless-session-jdbc-batching]]
 == JDBC batching with `StatelessSession`
@@ -439,12 +522,47 @@ In Hibernate 7, these SQL `UPDATE` statements only occur if the `@OrderColumn` i
 Since Vibur and Proxool are no longer actively developed, support for these connection pools was removed.
 Use Agroal or HikariCP instead.
 
+== Converters incompatible with annotations
+
+JPA ``AttributeConverter``s are incompatible with the annotations `@Id`, `@Version`, `@Enumerated`, `@Embedded`, `@Temporal` and all association-mapping annotations.
+Previously, any converter applied to an attribute with an incompatible annotation was simply ignored.
+Hibernate now reports an error in this situation.
+
+This includes auto-applied converters.
+To suppress the error for an auto-applied converter, use `@Convert(disableConversion=true)`.
+
+== `org.hibernate.graph` package
+
+The `EntityGraph` API was enhanced in JPA 3.2, and made much more useful.
+The incubating package `org.hibernate.graph` contains extensions to that API, which have been significantly impacted by the migration to JPA 3.2, and by the additional of new functionality.
+Furthermore, some legacy operations were declared with incorrect generic type signatures (by both JPA, and by Hibernate).
+
+This package has been significantly re-engineered, and the impact of this effort includes:
+
+- some breaking changes to type signatures, and
+- a number of deprecations of legacy operations which are now covered by JPA.
+
+Also, a key subgraph now always refers to a `Map` key, and never to an entity id.
+
+We encourage migration to the use of the new JPA-standard operations.
+
+== Deprecations
+
+* `@Comment` is deprecated in favor of the JPA 3.2 `comment` members
+* `@Comment` is deprecated in favor of the JPA 3.2 `@CheckConstraint` and `check` members
+* `NullPrecedence` is deprecated in favor of JPA 3.2 `Nulls`
+* `@FractionalSeconds` is deprecated in favor of JPA 3.2 `secondPrecision`
+* `DynamicParameterizedType` is deprecated
+* `Session.get()` is deprecated in favor of `find()`
+* `@Cascade` and `org.hibernate.annotations.CascadeType` are deprecated in favor of JPA `cascade` and `CascadeType`
+* `org.hibernate.annotations.FlushModeType` is deprecated in favor of `QueryFlushMode`
+
 [[cleanup]]
 == Cleanup
 
 * Annotations
 ** Removed `@Persister`
-** Removed `@Proxy` - see <<proxy-annotation>>
+** Removed `@Proxy` -- see <<proxy-annotation>>
 ** Removed `@SelectBeforeUpdate`
 ** Removed `@DynamicInsert#value` and `@DynamicUpdate#value`
 ** Removed `@Loader`
@@ -466,26 +584,28 @@ Use Agroal or HikariCP instead.
 ** Removed `AdditionalJaxbMappingProducer` -> `AdditionalMappingContributor`
 ** Removed `MetadataContributor` -> `AdditionalMappingContributor`
 ** Removed `EmptyInterceptor` -> implement `org.hibernate.Interceptor` directly
+** Removed `Session.LockRequest` -> use `LockOptions`
 
 * Behavior
-** Removed `org.hibernate.Session#save` in favor of `org.hibernate.Session#persist`
-** Removed `org.hibernate.Session#saveOrUpdate` in favor `#persist` if the entity is transient or `#merge` if the entity is detached.
-** Removed `org.hibernate.Session#update` in favor of `org.hibernate.Session.merge`
+** Removed `Session.save` in favor of `Session.persist`
+** Removed `Session.saveOrUpdate` in favor `persist` if the entity is transient or `merge` if the entity is detached
+** Removed `Session.update` in favor of `Session.merge`
 ** Removed `org.hibernate.annotations.CascadeType.SAVE_UPDATE` in favor of `org.hibernate.annotations.CascadeType.PERSIST` + `org.hibernate.annotations.CascadeType.MERGE`
-** Removed `org.hibernate.Session#delete` in favor of `org.hibernate.Session#remove`
-** Removed `org.hibernate.annotations.CascadeType.DELETE` in favor of `org.hibernate.annotations.CascadeType#REMOVE`
-** Removed `org.hibernate.Session#refresh(String entityName, Object object)` in favor of `org.hibernate.Session#refresh(Object object)`
-** Removed `org.hibernate.Session#refresh(String entityName, Object object, LockOptions lockOptions)` in favor of `org.hibernate.Session#refresh(Object object, LockOptions lockOptions)`
-** Removed `org.hibernate.integrator.spi.Integrator#integrate(Metadata,SessionFactoryImplementor,SessionFactoryServiceRegistry)` in favor of `org.hibernate.integrator.spi.Integrator#integrate(Metadata,BootstrapContext,SessionFactoryImplementor)`
-** Removed `org.hibernate.Interceptor#onLoad(Object, Serializable, Object[] , String[] , Type[] )` in favour of `org.hibernate.Interceptor#onLoad(Object, Object, Object[], String[], Type[] )`
-** Removed `org.hibernate.Interceptor#onFlushDirty(Object, Serializable, Object[] , Object[], String[] , Type[] )` in favour of `org.hibernate.Interceptor#onLoad(Object, Object, Object[], Object[], String[] , Type[] )`
-** Removed `org.hibernate.Interceptor#onSave(Object, Serializable, Object[], String[], Type[])` in favour of `org.hibernate.Interceptor#onSave(Object, Object, Object[], String[], Type[])`
-** Removed `org.hibernate.Interceptor#onDelete(Object, Serializable, Object[], String[], Type[])` in favour of `org.hibernate.Interceptor#onDelete(Object, Serializable, Object[], String[], Type[])`
-** Removed `org.hibernate.Interceptor#onCollectionRecreate(Object, Serializable)` in favour of `org.hibernate.Interceptor#onCollectionRecreate(Object, Object)`
-** Removed `org.hibernate.Interceptor#onCollectionRemove(Object, Serializable)` in favour of `org.hibernate.Interceptor#onCollectionRemove(Object, Object)`
-** Removed `org.hibernate.Interceptor#onCollectionUpdate(Object, Serializable)` in favour of `org.hibernate.Interceptor#onCollectionUpdate(Object, Object)`
-** Removed `org.hibernate.Interceptor#findDirty(Object, Serializable, Object[], Object[], String[], Type[])` in favour of `org.hibernate.Interceptor#findDirty(Object, Object, Object[], Object[], String[], Type[])`
-** Removed `org.hibernate.Interceptor#getEntity(String, Serializable)` in favour of `org.hibernate.Interceptor#getEntity(String, Serializable)`
+** Removed `Session.delete` in favor of `Session.remove`
+** Removed `Session.load` in favor of `Session.find`
+** Removed `org.hibernate.annotations.CascadeType.DELETE` in favor of `org.hibernate.annotations.CascadeType.REMOVE`
+** Removed `Session.refresh(String entityName, Object object)` in favor of `Session.refresh(Object object)`
+** Removed `Session.refresh(String entityName, Object object, LockOptions lockOptions)` in favor of `Session.refresh(Object object, LockOptions lockOptions)`
+** Removed `org.hibernate.integrator.spi.Integrator.integrate(Metadata,SessionFactoryImplementor,SessionFactoryServiceRegistry)` in favor of `org.hibernate.integrator.spi.Integrator.integrate(Metadata,BootstrapContext,SessionFactoryImplementor)`
+** Removed `Interceptor.onLoad(Object, Serializable, Object[] , String[] , Type[] )` in favour of `Interceptor.onLoad(Object, Object, Object[], String[], Type[] )`
+** Removed `Interceptor.onFlushDirty(Object, Serializable, Object[] , Object[], String[] , Type[] )` in favour of `Interceptor.onLoad(Object, Object, Object[], Object[], String[] , Type[] )`
+** Removed `Interceptor.onSave(Object, Serializable, Object[], String[], Type[])` in favour of `Interceptor.onSave(Object, Object, Object[], String[], Type[])`
+** Removed `Interceptor.onDelete(Object, Serializable, Object[], String[], Type[])` in favour of `Interceptor.onDelete(Object, Serializable, Object[], String[], Type[])`
+** Removed `Interceptor.onCollectionRecreate(Object, Serializable)` in favour of `Interceptor.onCollectionRecreate(Object, Object)`
+** Removed `Interceptor.onCollectionRemove(Object, Serializable)` in favour of `Interceptor.onCollectionRemove(Object, Object)`
+** Removed `Interceptor.onCollectionUpdate(Object, Serializable)` in favour of `Interceptor.onCollectionUpdate(Object, Object)`
+** Removed `Interceptor.findDirty(Object, Serializable, Object[], Object[], String[], Type[])` in favour of `Interceptor.findDirty(Object, Object, Object[], Object[], String[], Type[])`
+** Removed `Interceptor.getEntity(String, Serializable)` in favour of `Interceptor.getEntity(String, Serializable)`
 ** Removed `org.hibernate.metamodel.spi.MetamodelImplementor` in favor of `org.hibernate.metamodela.MappingMetmodel` or `org.hibernate.metamodel.model.domain.JpaMetamodel`
 ** Removed `org.hibernate.Metamodel` in favor of `org.hibernate.metamodel.model.domain.JpaMetamodel`
 ** Removed `NaturalIdLoadAccess.using(Map)` and `NaturalIdMultiLoadAccess.compoundValue()` in favor of `Map.of()`
@@ -498,7 +618,7 @@ Use Agroal or HikariCP instead.
 [[reorg]]
 == Reorganize Packages (for api/spi/internal, etc)
 
-* Re-organized the `org.hibernate.query.results` package
+* Reorganized the `org.hibernate.query.results` package
 
 
 [[todo]]

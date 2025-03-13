@@ -25,12 +25,15 @@ import org.hibernate.cfg.MappingSettings;
 
 import jakarta.persistence.AttributeConverter;
 
+import static java.util.Collections.unmodifiableCollection;
+import static java.util.Collections.unmodifiableSet;
+
 
 /**
  * @author Steve Ebersole
  */
 public class ManagedResourcesImpl implements ManagedResources {
-	private final Map<Class<? extends AttributeConverter>, ConverterDescriptor> attributeConverterDescriptorMap = new HashMap<>();
+	private final Map<Class<? extends AttributeConverter<?,?>>, ConverterDescriptor> attributeConverterDescriptorMap = new HashMap<>();
 	private final Set<Class<?>> annotatedClassReferences = new LinkedHashSet<>();
 	private final Set<String> annotatedClassNames = new LinkedHashSet<>();
 	private final Set<String> annotatedPackageNames = new LinkedHashSet<>();
@@ -48,7 +51,6 @@ public class ManagedResourcesImpl implements ManagedResources {
 		return impl;
 	}
 
-	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private static void handleXmlMappings(
 			MetadataSources sources,
 			ManagedResourcesImpl impl,
@@ -61,7 +63,7 @@ public class ManagedResourcesImpl implements ManagedResources {
 			);
 			return;
 		}
-		impl.mappingFileBindings.addAll( (List) sources.getXmlBindings() );
+		impl.mappingFileBindings.addAll( sources.getXmlBindings() );
 	}
 
 	public ManagedResourcesImpl() {
@@ -69,22 +71,22 @@ public class ManagedResourcesImpl implements ManagedResources {
 
 	@Override
 	public Collection<ConverterDescriptor> getAttributeConverterDescriptors() {
-		return Collections.unmodifiableCollection( attributeConverterDescriptorMap.values() );
+		return unmodifiableCollection( attributeConverterDescriptorMap.values() );
 	}
 
 	@Override
 	public Collection<Class<?>> getAnnotatedClassReferences() {
-		return Collections.unmodifiableSet( annotatedClassReferences );
+		return unmodifiableSet( annotatedClassReferences );
 	}
 
 	@Override
 	public Collection<String> getAnnotatedClassNames() {
-		return Collections.unmodifiableSet( annotatedClassNames );
+		return unmodifiableSet( annotatedClassNames );
 	}
 
 	@Override
 	public Collection<String> getAnnotatedPackageNames() {
-		return Collections.unmodifiableSet( annotatedPackageNames );
+		return unmodifiableSet( annotatedPackageNames );
 	}
 
 	@Override

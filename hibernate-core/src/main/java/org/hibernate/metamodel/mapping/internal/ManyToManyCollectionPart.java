@@ -39,7 +39,6 @@ import org.hibernate.metamodel.mapping.SelectableMapping;
 import org.hibernate.metamodel.mapping.SelectableMappings;
 import org.hibernate.metamodel.mapping.ValuedModelPart;
 import org.hibernate.metamodel.mapping.VirtualModelPart;
-import org.hibernate.persister.collection.BasicCollectionPersister;
 import org.hibernate.persister.collection.CollectionPersister;
 import org.hibernate.persister.collection.mutation.CollectionMutationTarget;
 import org.hibernate.spi.NavigablePath;
@@ -398,7 +397,7 @@ public class ManyToManyCollectionPart extends AbstractEntityCollectionPart imple
 		}
 		else if ( StringHelper.isNotEmpty( bootCollectionDescriptor.getMappedByProperty() ) ) {
 			final ModelPart mappedByPart = resolveNamedTargetPart( bootCollectionDescriptor.getMappedByProperty(), getAssociatedEntityMappingType(), collectionDescriptor );
-			if ( mappedByPart instanceof ToOneAttributeMapping ) {
+			if ( mappedByPart instanceof ToOneAttributeMapping || mappedByPart instanceof DiscriminatedAssociationAttributeMapping ) {
 				////////////////////////////////////////////////
 				// E.g.
 				//
@@ -425,7 +424,7 @@ public class ManyToManyCollectionPart extends AbstractEntityCollectionPart imple
 				final ManyToOne elementDescriptor = (ManyToOne) bootCollectionDescriptor.getElement();
 				assert elementDescriptor.isReferenceToPrimaryKey();
 
-				final String collectionTableName = ( (BasicCollectionPersister) collectionDescriptor ).getTableName();
+				final String collectionTableName = collectionDescriptor.getTableName();
 
 				// this fk will refer to the associated entity's id.  if that id is not ready yet, delay this creation
 				if ( getAssociatedEntityMappingType().getIdentifierMapping() == null ) {
@@ -600,8 +599,7 @@ public class ManyToManyCollectionPart extends AbstractEntityCollectionPart imple
 		assert fkTargetModelPart != null;
 
 		// If this is mapped by a to-one attribute, we can use the FK of that attribute
-		if ( fkTargetModelPart instanceof ToOneAttributeMapping ) {
-			final ToOneAttributeMapping toOneAttributeMapping = (ToOneAttributeMapping) fkTargetModelPart;
+		if ( fkTargetModelPart instanceof ToOneAttributeMapping toOneAttributeMapping ) {
 			if ( toOneAttributeMapping.getForeignKeyDescriptor() == null ) {
 				throw new IllegalStateException( "Not yet ready: " + toOneAttributeMapping );
 			}
@@ -612,9 +610,8 @@ public class ManyToManyCollectionPart extends AbstractEntityCollectionPart imple
 			);
 		}
 
-		if ( fkTargetModelPart instanceof ManyToManyCollectionPart ) {
+		if ( fkTargetModelPart instanceof ManyToManyCollectionPart targetModelPart ) {
 			// can this ever be anything other than another (the inverse) many-to-many part?
-			final ManyToManyCollectionPart targetModelPart = (ManyToManyCollectionPart) fkTargetModelPart;
 			if ( targetModelPart.getForeignKeyDescriptor() == null ) {
 				throw new IllegalStateException( "Not yet ready: " + targetModelPart );
 			}

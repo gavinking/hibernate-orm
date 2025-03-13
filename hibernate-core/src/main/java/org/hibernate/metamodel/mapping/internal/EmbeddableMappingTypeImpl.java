@@ -453,8 +453,7 @@ public class EmbeddableMappingTypeImpl extends AbstractEmbeddableMapping impleme
 					if ( selectable.isFormula() ) {
 						columnExpression = selectable.getTemplate(
 								dialect,
-								creationProcess.getCreationContext().getTypeConfiguration(),
-								creationProcess.getSqmFunctionRegistry()
+								creationProcess.getCreationContext().getTypeConfiguration()
 						);
 					}
 					else {
@@ -726,8 +725,7 @@ public class EmbeddableMappingTypeImpl extends AbstractEmbeddableMapping impleme
 			final Formula formula = (Formula) selectable;
 			discriminatorColumnExpression = name = formula.getTemplate(
 					creationContext.getDialect(),
-					creationContext.getTypeConfiguration(),
-					creationContext.getFunctionRegistry()
+					creationContext.getTypeConfiguration()
 			);
 			columnDefinition = null;
 			length = null;
@@ -748,7 +746,7 @@ public class EmbeddableMappingTypeImpl extends AbstractEmbeddableMapping impleme
 		return new ExplicitColumnDiscriminatorMappingImpl(
 				this,
 				name,
-				bootDescriptor.getTable().getName(),
+				bootDescriptor.getTable().getQualifiedName( creationContext.getSqlStringGenerationContext() ),
 				discriminatorColumnExpression,
 				isFormula,
 				!isFormula,
@@ -906,11 +904,10 @@ public class EmbeddableMappingTypeImpl extends AbstractEmbeddableMapping impleme
 
 	@Override
 	public ModelPart findSubPart(String name, EntityMappingType treatTargetType) {
-		if ( EntityDiscriminatorMapping.matchesRoleName( name ) ) {
-			return discriminatorMapping;
-		}
+		return EntityDiscriminatorMapping.matchesRoleName( name )
+				? discriminatorMapping
+				: super.findSubPart( name, treatTargetType );
 
-		return super.findSubPart( name, treatTargetType );
 	}
 
 	@Override

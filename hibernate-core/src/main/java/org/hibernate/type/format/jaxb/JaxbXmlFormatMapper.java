@@ -20,6 +20,7 @@ import javax.xml.namespace.QName;
 
 import jakarta.xml.bind.annotation.XmlElement;
 import org.hibernate.dialect.XmlHelper;
+import org.hibernate.internal.build.AllowReflection;
 import org.hibernate.internal.util.ReflectHelper;
 import org.hibernate.internal.util.collections.CollectionHelper;
 import org.hibernate.sql.ast.spi.StringBuilderSqlAppender;
@@ -70,6 +71,7 @@ public final class JaxbXmlFormatMapper implements FormatMapper {
 	}
 
 	@Override
+	@AllowReflection
 	public <T> T fromString(CharSequence charSequence, JavaType<T> javaType, WrapperOptions wrapperOptions) {
 		if ( javaType.getJavaType() == String.class || javaType.getJavaType() == Object.class ) {
 			return (T) charSequence.toString();
@@ -511,10 +513,9 @@ public final class JaxbXmlFormatMapper implements FormatMapper {
 			Object exampleElement,
 			JAXBIntrospector introspector,
 			WrapperOptions wrapperOptions) {
-		final JavaType<Object> elementJavaType = wrapperOptions.getSessionFactory()
-				.getTypeConfiguration()
-				.getJavaTypeRegistry()
-				.findDescriptor( elementClass );
+		final JavaType<Object> elementJavaType =
+				wrapperOptions.getTypeConfiguration().getJavaTypeRegistry()
+						.findDescriptor( elementClass );
 		if ( exampleElement == null && ( elementJavaType == null || JavaTypeHelper.isUnknown( elementJavaType ) ) ) {
 			try {
 				final Constructor<?> declaredConstructor = elementClass.getDeclaredConstructor();
@@ -567,7 +568,7 @@ public final class JaxbXmlFormatMapper implements FormatMapper {
 		return marshaller;
 	}
 
-	public static interface ManagedMapWrapper {
+	public interface ManagedMapWrapper {
 		int size();
 	}
 
@@ -638,7 +639,7 @@ public final class JaxbXmlFormatMapper implements FormatMapper {
 		}
 	}
 
-	private static interface JAXBElementTransformer {
+	private interface JAXBElementTransformer {
 		JAXBElement<?> toJAXBElement(Object o);
 		Object fromJAXBElement(Object element, Unmarshaller unmarshaller) throws JAXBException;
 		Object fromXmlContent(String content);

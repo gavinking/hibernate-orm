@@ -6,7 +6,7 @@ package org.hibernate.dialect.function.json;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.hibernate.dialect.function.array.DdlTypeHelper;
-import org.hibernate.query.derived.AnonymousTupleTableGroupProducer;
+import org.hibernate.query.sqm.tuple.internal.AnonymousTupleTableGroupProducer;
 import org.hibernate.query.spi.QueryEngine;
 import org.hibernate.query.sqm.function.AbstractSqmSelfRenderingSetReturningFunctionDescriptor;
 import org.hibernate.query.sqm.function.SelfRenderingSqmSetReturningFunction;
@@ -247,6 +247,12 @@ public class JsonTableFunction extends AbstractSqmSelfRenderingSetReturningFunct
 		if ( jsonPath != null ) {
 			sqlAppender.appendSql( " path " );
 			sqlAppender.appendSingleQuoteEscapedString( jsonPath );
+		}
+		else {
+			// Always append implicit path to avoid identifier case sensitivity issues
+			sqlAppender.appendSql( " path '$." );
+			sqlAppender.appendSql( name );
+			sqlAppender.appendSql( '\'' );
 		}
 	}
 

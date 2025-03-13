@@ -14,7 +14,7 @@ import org.hibernate.query.criteria.JpaJsonQueryNode;
 import org.hibernate.query.criteria.JpaJsonTableColumnsNode;
 import org.hibernate.query.criteria.JpaJsonTableFunction;
 import org.hibernate.query.criteria.JpaJsonValueNode;
-import org.hibernate.query.derived.AnonymousTupleType;
+import org.hibernate.query.sqm.tuple.internal.AnonymousTupleType;
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SemanticQueryWalker;
 import org.hibernate.query.sqm.SqmExpressible;
@@ -990,8 +990,8 @@ public class SqmJsonTableFunction<T> extends SelfRenderingSqmSetReturningFunctio
 		}
 
 		@Override
-		public void appendHqlString(StringBuilder sb) {
-			appendColumnsToHqlString( sb );
+		public void appendHqlString(StringBuilder hql) {
+			appendColumnsToHqlString( hql );
 		}
 	}
 }

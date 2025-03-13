@@ -17,6 +17,7 @@ import java.util.Properties;
 import org.hibernate.AssertionFailure;
 import org.hibernate.FetchMode;
 import org.hibernate.annotations.CascadeType;
+import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.annotations.SourceType;
 import org.hibernate.boot.MappingException;
 import org.hibernate.boot.jaxb.Origin;
@@ -26,7 +27,6 @@ import org.hibernate.boot.model.source.spi.Caching;
 import org.hibernate.boot.model.IdentifierGeneratorDefinition;
 import org.hibernate.boot.model.TypeDefinition;
 import org.hibernate.boot.model.internal.FkSecondPass;
-import org.hibernate.boot.model.internal.SimpleToOneFkSecondPass;
 import org.hibernate.boot.model.naming.EntityNaming;
 import org.hibernate.boot.model.naming.Identifier;
 import org.hibernate.boot.model.naming.ImplicitBasicColumnNameSource;
@@ -139,7 +139,6 @@ import org.hibernate.mapping.UnionSubclass;
 import org.hibernate.mapping.UniqueKey;
 import org.hibernate.mapping.Value;
 import org.hibernate.resource.beans.internal.FallbackBeanInstanceProducer;
-import org.hibernate.resource.beans.spi.ManagedBeanRegistry;
 import org.hibernate.spi.NavigablePath;
 import org.hibernate.tuple.GenerationTiming;
 import org.hibernate.type.AbstractSingleColumnStandardBasicType;
@@ -562,7 +561,7 @@ public class ModelBinder {
 			keyBinding.makeNationalized();
 		}
 		entityDescriptor.setKey( keyBinding );
-		keyBinding.setCascadeDeleteEnabled( entitySource.isCascadeDeleteEnabled() );
+		keyBinding.setOnDeleteAction( getOnDeleteAction( entitySource.isCascadeDeleteEnabled() ) );
 		relationalObjectBinder.bindColumns(
 				mappingDocument,
 				entitySource.getPrimaryKeyColumnSources(),
@@ -593,7 +592,6 @@ public class ModelBinder {
 
 		bindJoinedSubclassEntities( entitySource, entityDescriptor );
 	}
-
 	private void bindUnionSubclassEntities(
 			EntitySource entitySource,
 			PersistentClass superEntityDescriptor) {
@@ -1327,7 +1325,7 @@ public class ModelBinder {
 
 		// bind the collection type info
 		String typeName = source.getTypeInformation().getName();
-		Map<Object,Object> typeParameters = new HashMap<>();
+		final Map<String,String> typeParameters = new HashMap<>();
 		if ( typeName != null ) {
 			// see if there is a corresponding type-def
 			final TypeDefinition typeDef = mappingDocument.getMetadataCollector().getTypeDefinition( typeName );
@@ -1622,7 +1620,7 @@ public class ModelBinder {
 		}
 		secondaryTableJoin.setKey( keyBinding );
 
-		keyBinding.setCascadeDeleteEnabled( secondaryTableSource.isCascadeDeleteEnabled() );
+		keyBinding.setOnDeleteAction( getOnDeleteAction( secondaryTableSource.isCascadeDeleteEnabled() ) );
 
 		// NOTE : no Type info to bind...
 
@@ -1841,17 +1839,12 @@ public class ModelBinder {
 
 		// Defer the creation of the foreign key as we need the associated entity persister to be initialized
 		// so that we can observe the properties/columns of a possible component in the correct order
-		metadataBuildingContext.getMetadataCollector().addSecondPass( new SimpleToOneFkSecondPass( oneToOneBinding ) );
+		metadataBuildingContext.getMetadataCollector().addSecondPass( new OneToOneFkSecondPass( oneToOneBinding ) );
 
-		Property prop = new Property();
-		prop.setValue( oneToOneBinding );
-		bindProperty(
-				sourceDocument,
-				oneToOneSource,
-				prop
-		);
-
-		return prop;
+		final Property property = new Property();
+		property.setValue( oneToOneBinding );
+		bindProperty( sourceDocument, oneToOneSource, property );
+		return property;
 	}
 
 	private void handlePropertyReference(
@@ -1972,7 +1965,7 @@ public class ModelBinder {
 			setForeignKeyName( oneToOneBinding, oneToOneSource.getExplicitForeignKeyName() );
 		}
 
-		oneToOneBinding.setCascadeDeleteEnabled( oneToOneSource.isCascadeDeleteEnabled() );
+		oneToOneBinding.setOnDeleteAction( getOnDeleteAction( oneToOneSource.isCascadeDeleteEnabled() ) );
 	}
 
 	private Property createManyToOneAttribute(
@@ -2121,7 +2114,7 @@ public class ModelBinder {
 			}
 		}
 
-		manyToOneBinding.setCascadeDeleteEnabled( manyToOneSource.isCascadeDeleteEnabled() );
+		manyToOneBinding.setOnDeleteAction( getOnDeleteAction( manyToOneSource.isCascadeDeleteEnabled() ) );
 	}
 
 	private static void setForeignKeyName(SimpleValue manyToOneBinding, String foreignKeyName) {
@@ -2148,15 +2141,10 @@ public class ModelBinder {
 
 		anyBinding.createForeignKey();
 
-		Property prop = new Property();
-		prop.setValue( anyBinding );
-		bindProperty(
-				sourceDocument,
-				anyMapping,
-				prop
-		);
-
-		return prop;
+		final Property property = new Property();
+		property.setValue( anyBinding );
+		bindProperty( sourceDocument, anyMapping, property );
+		return property;
 	}
 
 	private void bindAny(
@@ -2276,21 +2264,20 @@ public class ModelBinder {
 			return resolution.getLegacyResolvedBasicType();
 		}
 		else {
-			final ClassLoaderService classLoaderService =
-					bootstrapContext.getServiceRegistry().requireService( ClassLoaderService.class );
+			final ClassLoaderService classLoaderService = bootstrapContext.getClassLoaderService();
 			try {
 				final Object typeInstance = typeInstance( typeName, classLoaderService.classForName( typeName ) );
 
-				if ( typeInstance instanceof ParameterizedType ) {
+				if ( typeInstance instanceof ParameterizedType parameterizedType ) {
 					if ( parameters != null ) {
-						Properties properties = new Properties();
+						final Properties properties = new Properties();
 						properties.putAll( parameters );
-						( (ParameterizedType) typeInstance ).setParameterValues( properties );
+						parameterizedType.setParameterValues( properties );
 					}
 				}
 
-				if ( typeInstance instanceof UserType ) {
-					return new CustomType<>( (UserType<?>) typeInstance, typeConfiguration);
+				if ( typeInstance instanceof UserType<?> userType ) {
+					return new CustomType<>( userType, typeConfiguration);
 				}
 
 				return (BasicType<?>) typeInstance;
@@ -2315,8 +2302,7 @@ public class ModelBinder {
 		}
 		else {
 			final String beanName = typeName + ":" + TypeDefinition.NAME_COUNTER.getAndIncrement();
-			return metadataBuildingContext.getBootstrapContext()
-					.getServiceRegistry().requireService( ManagedBeanRegistry.class )
+			return metadataBuildingContext.getBootstrapContext().getManagedBeanRegistry()
 					.getBean( beanName, typeJavaType ).getBeanInstance();
 		}
 	}
@@ -2425,8 +2411,8 @@ public class ModelBinder {
 			GenerationTiming timing) {
 		if ( timing != null ) {
 			if ( (timing == GenerationTiming.INSERT || timing == GenerationTiming.UPDATE)
-					&& property.getValue() instanceof SimpleValue
-					&& ((SimpleValue) property.getValue()).isVersion() ) {
+					&& property.getValue() instanceof SimpleValue simpleValue
+					&& simpleValue.isVersion() ) {
 				// this is enforced by DTD, but just make sure
 				throw new MappingException(
 						"'generated' attribute cannot be 'insert' or 'update' for version/timestamp property",
@@ -2543,8 +2529,7 @@ public class ModelBinder {
 						}
 						else {
 							compositeUserType = (CompositeUserType<?>) sourceDocument.getBootstrapContext()
-									.getServiceRegistry()
-									.requireService( ManagedBeanRegistry.class )
+									.getManagedBeanRegistry()
 									.getBean( componentClass )
 									.getBeanInstance();
 						}
@@ -2661,7 +2646,7 @@ public class ModelBinder {
 				throw new AssertionFailure(
 						String.format(
 								Locale.ENGLISH,
-								"Unexpected AttributeSource sub-type [%s] as part of composite [%s]",
+								"Unexpected AttributeSource subtype [%s] as part of composite [%s]",
 								attributeSource.getClass().getName(),
 								attributeSource.getAttributeRole().getFullPath()
 						)
@@ -2691,8 +2676,8 @@ public class ModelBinder {
 
 		if ( CollectionHelper.isNotEmpty( typeResolution.parameters ) ) {
 			simpleValue.setTypeParameters( typeResolution.parameters );
-			if ( simpleValue instanceof BasicValue ) {
-				( (BasicValue) simpleValue ).setExplicitTypeParams( typeResolution.parameters );
+			if ( simpleValue instanceof BasicValue basicValue ) {
+				basicValue.setExplicitTypeParams( typeResolution.parameters );
 			}
 		}
 
@@ -3003,7 +2988,6 @@ public class ModelBinder {
 		}
 	}
 
-
 	private abstract class AbstractPluralAttributeSecondPass implements SecondPass {
 		private final MappingDocument mappingDocument;
 		private final PluralAttributeSource pluralAttributeSource;
@@ -3203,8 +3187,8 @@ public class ModelBinder {
 					keyVal
 			);
 			setForeignKeyName( key, keySource.getExplicitForeignKeyName() );
-			key.setCascadeDeleteEnabled( getPluralAttributeSource().getKeySource().isCascadeDeleteEnabled() );
-//
+			key.setOnDeleteAction( getOnDeleteAction( getPluralAttributeSource().getKeySource().isCascadeDeleteEnabled() ) );
+
 //			final ImplicitJoinColumnNameSource.Nature implicitNamingNature;
 //			if ( getPluralAttributeSource().getElementSource() instanceof PluralAttributeElementSourceManyToMany
 //					|| getPluralAttributeSource().getElementSource() instanceof PluralAttributeElementSourceOneToMany ) {
@@ -3935,21 +3919,18 @@ public class ModelBinder {
 		}
 	}
 
-	private static class ManyToOneFkSecondPass extends FkSecondPass {
+	private static class ManyToOneFkSecondPass implements FkSecondPass {
 		private final MappingDocument mappingDocument;
 		private final ManyToOne manyToOneBinding;
 
 		private final String referencedEntityName;
 		private final String referencedEntityAttributeName;
 
-
-		public ManyToOneFkSecondPass(
+		private ManyToOneFkSecondPass(
 				MappingDocument mappingDocument,
 				SingularAttributeSourceManyToOne manyToOneSource,
 				ManyToOne manyToOneBinding,
 				String referencedEntityName) {
-			super( manyToOneBinding, null );
-
 			if ( referencedEntityName == null ) {
 				throw new MappingException(
 						"entity name referenced by many-to-one required [" + manyToOneSource.getAttributeRole().getFullPath() + "]",
@@ -3959,8 +3940,12 @@ public class ModelBinder {
 			this.mappingDocument = mappingDocument;
 			this.manyToOneBinding = manyToOneBinding;
 			this.referencedEntityName = referencedEntityName;
-
 			this.referencedEntityAttributeName = manyToOneSource.getReferencedEntityAttributeName();
+		}
+
+		@Override
+		public Value getValue() {
+			return manyToOneBinding;
 		}
 
 		@Override
@@ -3993,6 +3978,34 @@ public class ModelBinder {
 					mappingDocument.getMetadataCollector().getEntityBinding( referencedEntityName );
 			return referencedEntityBinding != null && referencedEntityAttributeName != null;
 
+		}
+	}
+
+	private static class OneToOneFkSecondPass implements FkSecondPass {
+		private final OneToOne oneToOneBinding;
+
+		private OneToOneFkSecondPass(OneToOne oneToOneBinding) {
+			this.oneToOneBinding = oneToOneBinding;
+		}
+
+		@Override
+		public Value getValue() {
+			return oneToOneBinding;
+		}
+
+		@Override
+		public String getReferencedEntityName() {
+			return oneToOneBinding.getReferencedEntityName();
+		}
+
+		@Override
+		public boolean isInPrimaryKey() {
+			return false;
+		}
+
+		@Override
+		public void doSecondPass(Map<String, PersistentClass> persistentClasses) {
+			oneToOneBinding.createForeignKey();
 		}
 	}
 
@@ -4068,5 +4081,9 @@ public class ModelBinder {
 			builder.append( selectable.getText() );
 		}
 		return builder.toString();
+	}
+
+	private static OnDeleteAction getOnDeleteAction(boolean entitySource) {
+		return entitySource ? OnDeleteAction.CASCADE : OnDeleteAction.NO_ACTION;
 	}
 }

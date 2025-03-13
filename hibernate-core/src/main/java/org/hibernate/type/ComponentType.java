@@ -41,6 +41,7 @@ import org.hibernate.type.descriptor.jdbc.JdbcType;
 import org.hibernate.type.spi.CompositeTypeImplementor;
 
 import static org.hibernate.internal.util.ReflectHelper.isRecord;
+import static org.hibernate.internal.util.StringHelper.unqualify;
 import static org.hibernate.metamodel.mapping.EntityDiscriminatorMapping.DISCRIMINATOR_ROLE_NAME;
 
 /**
@@ -284,7 +285,7 @@ public class ComponentType extends AbstractType implements CompositeTypeImplemen
 		// null value and empty component are considered equivalent
 		int loc = 0;
 		for ( int i = 0; i < propertySpan; i++ ) {
-			int len = propertyTypes[i].getColumnSpan( session.getFactory() );
+			int len = propertyTypes[i].getColumnSpan( session.getFactory().getRuntimeMetamodels() );
 			if ( len <= 1 ) {
 				final boolean dirty = ( len == 0 || checkable[loc] ) &&
 						propertyTypes[i].isDirty( getPropertyValue( x, i ), getPropertyValue( y, i ), session );
@@ -322,7 +323,7 @@ public class ComponentType extends AbstractType implements CompositeTypeImplemen
 		// null value and empty components are considered equivalent
 		int loc = 0;
 		for ( int i = 0; i < propertySpan; i++ ) {
-			final int len = propertyTypes[i].getColumnSpan( session.getFactory() );
+			final int len = propertyTypes[i].getColumnSpan( session.getFactory().getRuntimeMetamodels() );
 			final boolean[] subcheckable = new boolean[len];
 			System.arraycopy( checkable, loc, subcheckable, 0, len );
 			if ( propertyTypes[i].isModified( getPropertyValue( old, i ),
@@ -343,7 +344,7 @@ public class ComponentType extends AbstractType implements CompositeTypeImplemen
 
 		for ( int i = 0; i < propertySpan; i++ ) {
 			propertyTypes[i].nullSafeSet( st, subvalues[i], begin, session );
-			begin += propertyTypes[i].getColumnSpan( session.getFactory() );
+			begin += propertyTypes[i].getColumnSpan( session.getFactory().getRuntimeMetamodels() );
 		}
 	}
 
@@ -359,7 +360,7 @@ public class ComponentType extends AbstractType implements CompositeTypeImplemen
 		final Object[] subvalues = nullSafeGetValues( value );
 		int loc = 0;
 		for ( int i = 0; i < propertySpan; i++ ) {
-			int len = propertyTypes[i].getColumnSpan( session.getFactory() );
+			int len = propertyTypes[i].getColumnSpan( session.getFactory().getRuntimeMetamodels() );
 			//noinspection StatementWithEmptyBody
 			if ( len == 0 ) {
 				//noop
@@ -430,7 +431,7 @@ public class ComponentType extends AbstractType implements CompositeTypeImplemen
 	@Override
 	public Object[] getPropertyValues(Object component) {
 		if (component == null) {
-			return new Object[propertySpan];
+			return new Object[propertySpan + discriminatorColumnSpan];
 		}
 		else if ( component instanceof Object[] ) {
 			// A few calls to hashCode pass the property values already in an
@@ -476,7 +477,7 @@ public class ComponentType extends AbstractType implements CompositeTypeImplemen
 				result.put( propertyNames[i], propertyTypes[i].toLoggableString( values[i], factory ) );
 			}
 		}
-		return StringHelper.unqualify( getName() ) + result;
+		return unqualify( getName() ) + result;
 	}
 
 	@Override
@@ -495,7 +496,7 @@ public class ComponentType extends AbstractType implements CompositeTypeImplemen
 			values[i] = propertyTypes[i].deepCopy( values[i], factory );
 		}
 
-		final Object result = instantiator( component ).instantiate( () -> values, factory );
+		final Object result = instantiator( component ).instantiate( () -> values );
 
 		//not absolutely necessary, but helps for some
 		//equals()/hashCode() implementations
@@ -531,7 +532,7 @@ public class ComponentType extends AbstractType implements CompositeTypeImplemen
 		);
 
 		if ( target == null || !isMutable() ) {
-			return instantiator( original ).instantiate( () -> replacedValues, session.getSessionFactory() );
+			return instantiator( original ).instantiate( () -> replacedValues );
 		}
 		else {
 			setPropertyValues( target, replacedValues );
@@ -564,7 +565,7 @@ public class ComponentType extends AbstractType implements CompositeTypeImplemen
 		);
 
 		if ( target == null || !isMutable() ) {
-			return instantiator( original ).instantiate( () -> replacedValues, session.getSessionFactory() );
+			return instantiator( original ).instantiate( () -> replacedValues );
 		}
 		else {
 			setPropertyValues( target, replacedValues );
@@ -649,7 +650,7 @@ public class ComponentType extends AbstractType implements CompositeTypeImplemen
 			final EmbeddableInstantiator instantiator = polymorphic ?
 					representationStrategy.getInstantiatorForDiscriminator( values[i] ) :
 					representationStrategy.getInstantiator();
-			final Object instance = instantiator.instantiate( () -> assembled, session.getFactory() );
+			final Object instance = instantiator.instantiate( () -> assembled );
 
 			final PropertyAccess parentInjectionAccess = mappingModelPart.getParentInjectionAttributePropertyAccess();
 			if ( parentInjectionAccess != null ) {
@@ -763,7 +764,7 @@ public class ComponentType extends AbstractType implements CompositeTypeImplemen
 					notNull = true;
 				}
 				values[i] = value;
-				currentIndex += propertyType.getColumnSpan( session.getFactory() );
+				currentIndex += propertyType.getColumnSpan( session.getFactory().getRuntimeMetamodels() );
 			}
 
 			if ( polymorphic ) {
@@ -802,7 +803,7 @@ public class ComponentType extends AbstractType implements CompositeTypeImplemen
 		else {
 			instantiator = representationStrategy.getInstantiator();
 		}
-		return instantiator.instantiate( () -> value, session.getFactory() );
+		return instantiator.instantiate( () -> value );
 	}
 
 	private EmbeddableMappingType embeddableTypeDescriptor() {
@@ -867,7 +868,7 @@ public class ComponentType extends AbstractType implements CompositeTypeImplemen
 	public Object replacePropertyValues(Object component, Object[] values, SharedSessionContractImplementor session)
 			throws HibernateException {
 		if ( !isMutable() ) {
-			return instantiator( component ).instantiate( () -> values, session.getSessionFactory() );
+			return instantiator( component ).instantiate( () -> values );
 		}
 		return CompositeTypeImplementor.super.replacePropertyValues( component, values, session );
 	}

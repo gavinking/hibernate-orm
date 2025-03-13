@@ -30,7 +30,6 @@ import org.hibernate.metamodel.mapping.MappingType;
 import org.hibernate.metamodel.mapping.ModelPart;
 import org.hibernate.metamodel.mapping.PluralAttributeMapping;
 import org.hibernate.metamodel.mapping.internal.EmbeddedAttributeMapping;
-import org.hibernate.metamodel.spi.MappingMetamodelImplementor;
 import org.hibernate.query.QueryFlushMode;
 import org.hibernate.HibernateException;
 import org.hibernate.LockMode;
@@ -43,7 +42,6 @@ import org.hibernate.engine.spi.SharedSessionContractImplementor;
 import org.hibernate.graph.GraphSemantic;
 import org.hibernate.graph.RootGraph;
 import org.hibernate.graph.spi.RootGraphImplementor;
-import org.hibernate.internal.AbstractSharedSessionContract;
 import org.hibernate.internal.util.MathHelper;
 import org.hibernate.jpa.spi.NativeQueryTupleTransformer;
 import org.hibernate.metamodel.model.domain.BasicDomainType;
@@ -56,6 +54,7 @@ import org.hibernate.query.ParameterMetadata;
 import org.hibernate.query.PathException;
 import org.hibernate.query.Query;
 import org.hibernate.query.QueryParameter;
+import org.hibernate.query.restriction.Restriction;
 import org.hibernate.query.ResultListTransformer;
 import org.hibernate.query.TupleTransformer;
 import org.hibernate.query.internal.DelegatingDomainQueryExecutionContext;
@@ -119,7 +118,6 @@ import jakarta.persistence.metamodel.SingularAttribute;
 import org.hibernate.type.BasicTypeRegistry;
 import org.hibernate.type.descriptor.java.JavaType;
 import org.hibernate.type.descriptor.java.spi.UnknownBasicJavaType;
-import org.hibernate.type.spi.TypeConfiguration;
 
 import static java.lang.Character.isWhitespace;
 import static java.util.Collections.addAll;
@@ -158,10 +156,10 @@ public class NativeQueryImpl<R>
 
 	/**
 	 * Constructs a NativeQueryImpl given a sql query defined in the mappings.
+	 * Used by Hibernate Reactive.
 	 */
-	public NativeQueryImpl(
-			NamedNativeQueryMemento<?> memento,
-			SharedSessionContractImplementor session) {
+	@SuppressWarnings("unused")
+	public NativeQueryImpl(NamedNativeQueryMemento<?> memento, SharedSessionContractImplementor session) {
 		this(
 				memento,
 				() -> buildResultSetMapping( getResultSetMappingName( memento ), false, session ),
@@ -187,22 +185,6 @@ public class NativeQueryImpl<R>
 				null,
 				session
 		);
-	}
-
-	private static NamedObjectRepository getNamedObjectRepository(SharedSessionContractImplementor session) {
-		return session.getFactory().getQueryEngine().getNamedObjectRepository();
-	}
-
-	private static String getResultSetMappingName(NamedNativeQueryMemento<?> memento) {
-		if ( memento.getResultMappingName() != null ) {
-			return memento.getResultMappingName();
-		}
-		else if ( memento.getResultType() != null ) {
-			return memento.getResultType().getName();
-		}
-		else {
-			return memento.getSqlString();
-		}
 	}
 
 	/**
@@ -266,106 +248,105 @@ public class NativeQueryImpl<R>
 
 	}
 
-	public NativeQueryImpl(
+	private NativeQueryImpl(
 			NamedNativeQueryMemento<?> memento,
 			Supplier<ResultSetMapping> resultSetMappingCreator,
 			ResultSetMappingHandler resultSetMappingHandler,
-			SharedSessionContractImplementor session) {
-		this( memento, resultSetMappingCreator, resultSetMappingHandler, null, session );
-	}
-
-	public NativeQueryImpl(
-			NamedNativeQueryMemento<?> memento,
-			Supplier<ResultSetMapping> resultSetMappingCreator,
-			ResultSetMappingHandler resultSetMappingHandler,
-			@Nullable Class<R> resultType,
+			@Nullable Class<R> resultClass,
 			SharedSessionContractImplementor session) {
 		super( session );
-
-		this.originalSqlString = memento.getOriginalSqlString();
+		originalSqlString = memento.getOriginalSqlString();
+		querySpaces = new HashSet<>();
 
 		final ParameterInterpretation parameterInterpretation =
 				resolveParameterInterpretation( originalSqlString, session );
+		sqlString = parameterInterpretation.getAdjustedSqlString();
+		parameterMetadata = parameterInterpretation.toParameterMetadata( session );
+		parameterOccurrences = parameterInterpretation.getOrderedParameterOccurrences();
+		parameterBindings = parameterMetadata.createBindings( session.getFactory() );
 
-		this.sqlString = parameterInterpretation.getAdjustedSqlString();
-		this.parameterMetadata = parameterInterpretation.toParameterMetadata( session );
-		this.parameterOccurrences = parameterInterpretation.getOrderedParameterOccurrences();
-		this.parameterBindings = parameterMetadata.createBindings( session.getFactory() );
-		this.resultType = resultType;
-		this.querySpaces = new HashSet<>();
-
-		this.resultSetMapping = resultSetMappingCreator.get();
-
-		this.resultMappingSuppliedToCtor =
+		resultSetMapping = resultSetMappingCreator.get();
+		resultMappingSuppliedToCtor =
 				resultSetMappingHandler.resolveResultSetMapping( resultSetMapping, querySpaces::add, this );
 
-		if ( resultType != null ) {
-			if ( !isResultTypeAlwaysAllowed( resultType ) ) {
-				switch ( resultSetMapping.getNumberOfResultBuilders() ) {
-					case 0:
-						throw new IllegalArgumentException( "Named query exists, but did not specify a resultClass" );
-					case 1:
-						final Class<?> actualResultJavaType = resultSetMapping.getResultBuilders().get( 0 )
-								.getJavaType();
-						if ( actualResultJavaType != null && !resultType.isAssignableFrom( actualResultJavaType ) ) {
-							throw buildIncompatibleException( resultType, actualResultJavaType );
-						}
-						break;
-					default:
-						throw new IllegalArgumentException(
-								"Cannot create TypedQuery for query with more than one return" );
-				}
-			}
-			else {
-				setTupleTransformerForResultType( resultType );
-			}
-		}
+		resultType = resultClass;
+		handleExplicitResultSetMapping();
+
 		applyOptions( memento );
 	}
 
 	public NativeQueryImpl(
-			String sqlString,
+			String sql,
 			NamedResultSetMappingMemento resultSetMappingMemento,
-			AbstractSharedSessionContract session) {
+			Class<R> resultClass,
+			SharedSessionContractImplementor session) {
 		super( session );
+		originalSqlString = sql;
+		querySpaces = new HashSet<>();
 
-		this.originalSqlString = sqlString;
-		final ParameterInterpretation parameterInterpretation = resolveParameterInterpretation( sqlString, session );
-		this.sqlString = parameterInterpretation.getAdjustedSqlString();
-		this.parameterMetadata = parameterInterpretation.toParameterMetadata( session );
-		this.parameterOccurrences = parameterInterpretation.getOrderedParameterOccurrences();
-		this.parameterBindings = parameterMetadata.createBindings( session.getFactory() );
-		this.resultType = null;
-		this.querySpaces = new HashSet<>();
+		final ParameterInterpretation parameterInterpretation = resolveParameterInterpretation( sql, session );
+		sqlString = parameterInterpretation.getAdjustedSqlString();
+		parameterMetadata = parameterInterpretation.toParameterMetadata( session );
+		parameterOccurrences = parameterInterpretation.getOrderedParameterOccurrences();
+		parameterBindings = parameterMetadata.createBindings( session.getFactory() );
 
-		this.resultSetMapping = buildResultSetMapping( resultSetMappingMemento.getName(), false, session );
+		resultSetMapping = buildResultSetMapping( resultSetMappingMemento.getName(), false, session );
 		resultSetMappingMemento.resolve( resultSetMapping, this::addSynchronizedQuerySpace, this );
+		resultMappingSuppliedToCtor = true;
 
-		this.resultMappingSuppliedToCtor = true;
+		resultType = resultClass;
+		handleExplicitResultSetMapping();
 	}
 
-	public NativeQueryImpl(String sqlString, SharedSessionContractImplementor session) {
-		this( sqlString, null, session );
-	}
-
-	public NativeQueryImpl(String sqlString, @Nullable Class<R> resultType, SharedSessionContractImplementor session) {
+	public NativeQueryImpl(String sql, @Nullable Class<R> resultClass, SharedSessionContractImplementor session) {
 		super( session );
+		originalSqlString = sql;
+		querySpaces = new HashSet<>();
 
-		this.querySpaces = new HashSet<>();
+		final ParameterInterpretation parameterInterpretation = resolveParameterInterpretation( sql, session );
+		sqlString = parameterInterpretation.getAdjustedSqlString();
+		parameterMetadata = parameterInterpretation.toParameterMetadata( session );
+		parameterOccurrences = parameterInterpretation.getOrderedParameterOccurrences();
+		parameterBindings = parameterMetadata.createBindings( session.getFactory() );
 
-		this.originalSqlString = sqlString;
-		final ParameterInterpretation parameterInterpretation = resolveParameterInterpretation( sqlString, session );
-		this.sqlString = parameterInterpretation.getAdjustedSqlString();
-		this.parameterMetadata = parameterInterpretation.toParameterMetadata( session );
-		this.parameterOccurrences = parameterInterpretation.getOrderedParameterOccurrences();
-		this.parameterBindings = parameterMetadata.createBindings( session.getFactory() );
-		this.resultType = resultType;
-		if ( resultType != null ) {
+		resultSetMapping = resolveResultSetMapping( sql, true, session.getFactory() );
+		resultMappingSuppliedToCtor = false;
+
+		resultType = resultClass;
+		handleImplicitResultSetMapping( session );
+	}
+
+	private void handleImplicitResultSetMapping(SharedSessionContractImplementor session) {
+		if ( resultType != null && !session.getFactory().getMappingMetamodel().isEntityClass( resultType )  ) {
 			setTupleTransformerForResultType( resultType );
 		}
+	}
 
-		this.resultSetMapping = resolveResultSetMapping( sqlString, true, session.getFactory() );
-		this.resultMappingSuppliedToCtor = false;
+	private void handleExplicitResultSetMapping() {
+		if ( resultType != null ) {
+			if ( isResultTypeAlwaysAllowed( resultType ) ) {
+				setTupleTransformerForResultType( resultType );
+			}
+			else {
+				checkResultType( resultType );
+			}
+		}
+	}
+
+	private void checkResultType(Class<R> resultType) {
+		switch ( resultSetMapping.getNumberOfResultBuilders() ) {
+			case 0:
+				throw new IllegalArgumentException( "Named query exists, but did not specify a resultClass" );
+			case 1:
+				final Class<?> actualResultJavaType =
+						resultSetMapping.getResultBuilders().get( 0 ).getJavaType();
+				if ( actualResultJavaType != null && !resultType.isAssignableFrom( actualResultJavaType ) ) {
+					throw buildIncompatibleException( resultType, actualResultJavaType );
+				}
+				break;
+			default:
+				throw new IllegalArgumentException( "Cannot create TypedQuery for query with more than one return" );
+		}
 	}
 
 	protected <T> void setTupleTransformerForResultType(Class<T> resultClass) {
@@ -386,6 +367,7 @@ public class NativeQueryImpl<R>
 			return NativeQueryListTransformer.INSTANCE;
 		}
 		else if ( resultClass != Object.class && resultClass != Object[].class ) {
+			// TODO: this is extremely fragile and probably a bug
 			if ( isClass( resultClass ) && !hasJavaTypeDescriptor( resultClass ) ) {
 				// not a basic type
 				return new NativeQueryConstructorTransformer<>( resultClass );
@@ -395,8 +377,28 @@ public class NativeQueryImpl<R>
 	}
 
 	private <T> boolean hasJavaTypeDescriptor(Class<T> resultClass) {
-		final JavaType<Object> descriptor = getTypeConfiguration().getJavaTypeRegistry().findDescriptor( resultClass );
+		final JavaType<?> descriptor = getTypeConfiguration().getJavaTypeRegistry().findDescriptor( resultClass );
 		return descriptor != null && descriptor.getClass() != UnknownBasicJavaType.class;
+	}
+
+	private static NamedObjectRepository getNamedObjectRepository(SharedSessionContractImplementor session) {
+		return session.getFactory().getQueryEngine().getNamedObjectRepository();
+	}
+
+	private static QueryInterpretationCache getInterpretationCache(SharedSessionContractImplementor session) {
+		return session.getFactory().getQueryEngine().getInterpretationCache();
+	}
+
+	private static String getResultSetMappingName(NamedNativeQueryMemento<?> memento) {
+		if ( memento.getResultMappingName() != null ) {
+			return memento.getResultMappingName();
+		}
+		else if ( memento.getResultType() != null ) {
+			return memento.getResultType().getName();
+		}
+		else {
+			return memento.getSqlString();
+		}
 	}
 
 	@FunctionalInterface
@@ -420,7 +422,7 @@ public class NativeQueryImpl<R>
 
 	private ParameterInterpretation resolveParameterInterpretation(
 			String sqlString, SharedSessionContractImplementor session) {
-		return session.getFactory().getQueryEngine().getInterpretationCache()
+		return getInterpretationCache( session )
 				.resolveNativeQueryParameters( sqlString,
 						s -> parameterInterpretation( sqlString, session ) );
 	}
@@ -444,9 +446,9 @@ public class NativeQueryImpl<R>
 			setFirstResult( memento.getFirstResult() );
 		}
 
-		final Set<String> copy = makeCopy( memento.getQuerySpaces() );
-		if ( copy != null ) {
-			this.querySpaces = copy;
+		final Set<String> mementoQuerySpaces = memento.getQuerySpaces();
+		if ( mementoQuerySpaces != null ) {
+			querySpaces = makeCopy( mementoQuerySpaces );
 		}
 
 		// todo (6.0) : query returns
@@ -605,12 +607,15 @@ public class NativeQueryImpl<R>
 
 	@Override
 	public <T> NativeQueryImplementor<T> setTupleTransformer(TupleTransformer<T> transformer) {
-		return (NativeQueryImplementor<T>) super.setTupleTransformer( transformer );
+		super.setTupleTransformer( transformer );
+		//TODO: this is bad, we should really return a new instance
+		return (NativeQueryImplementor<T>) this;
 	}
 
 	@Override
 	public NativeQueryImplementor<R> setResultListTransformer(ResultListTransformer<R> transformer) {
-		return (NativeQueryImplementor<R>) super.setResultListTransformer( transformer );
+		super.setResultListTransformer( transformer );
+		return this;
 	}
 
 	@Override
@@ -640,31 +645,27 @@ public class NativeQueryImpl<R>
 
 	@Override
 	protected void prepareForExecution() {
-		if ( getSynchronizedQuerySpaces() != null && !getSynchronizedQuerySpaces().isEmpty() ) {
-			// The application defined query spaces on the Hibernate NativeQuery
-			// which means the query will already perform a partial flush
-			// according to the defined query spaces, no need to do a full flush.
-			return;
+		if ( getSynchronizedQuerySpaces() == null || getSynchronizedQuerySpaces().isEmpty() ) {
+			// We need to flush. The query itself is not required to execute in a
+			// transaction; if there is no transaction, the flush would throw a
+			// TransactionRequiredException which would potentially break existing
+			// apps, so we only do the flush if a transaction is in progress.
+			if ( shouldFlush() ) {
+				getSession().flush();
+			}
+			// Reset the callback before every execution
+			callback = null;
 		}
-
-		// otherwise we need to flush.  the query itself is not required to execute
-		// in a transaction; if there is no transaction, the flush would throw a
-		// TransactionRequiredException which would potentially break existing
-		// apps, so we only do the flush if a transaction is in progress.
-		//
-		// NOTE : this was added for JPA initially.  Perhaps we want to only do
-		// this from JPA usage?
-		if ( shouldFlush() ) {
-			getSession().flush();
-		}
-		// Reset the callback before every execution
-		callback = null;
+		// Otherwise, the application specified query spaces via the Hibernate
+		// SynchronizeableQuery and so the query will already perform a partial
+		// flush according to the defined query spaces - no need for a full flush.
 	}
 
 	private boolean shouldFlush() {
 		if ( getSession().isTransactionInProgress() ) {
 			final FlushMode flushMode = getQueryOptions().getFlushMode();
 			return switch ( flushMode == null ? getSession().getHibernateFlushMode() : flushMode ) {
+				// The JPA spec requires that we auto-flush before native queries
 				case AUTO -> getSession().getFactory().getSessionFactoryOptions().isJpaBootstrap();
 				case ALWAYS -> true;
 				default -> false;
@@ -708,7 +709,7 @@ public class NativeQueryImpl<R>
 			}
 			else if ( !isResultTypeAlwaysAllowed( resultType )
 					&& (!isClass( resultType ) || hasJavaTypeDescriptor( resultType )) ) {
-				mapping.addResultBuilder( Builders.resultClassBuilder( resultType, getSessionFactory() ) );
+				mapping.addResultBuilder( Builders.resultClassBuilder( resultType, getSessionFactory().getMappingMetamodel() ) );
 			}
 		}
 		else {
@@ -787,10 +788,6 @@ public class NativeQueryImpl<R>
 			}
 		};
 		return getNativeQueryInterpreter().createQueryPlan( queryDefinition, getSessionFactory() );
-	}
-
-	private TypeConfiguration getTypeConfiguration() {
-		return getSessionFactory().getTypeConfiguration();
 	}
 
 	private NativeQueryInterpreter getNativeQueryInterpreter() {
@@ -965,7 +962,7 @@ public class NativeQueryImpl<R>
 	}
 
 	private QueryInterpretationCache getInterpretationCache() {
-		return getSession().getFactory().getQueryEngine().getInterpretationCache();
+		return getInterpretationCache( getSession() );
 	}
 
 	private NonSelectQueryPlan resolveNonSelectQueryPlan() {
@@ -997,7 +994,7 @@ public class NativeQueryImpl<R>
 	@Override
 	public void addResultTypeClass(Class<?> resultClass) {
 		assert resultSetMapping.getNumberOfResultBuilders() == 0;
-		registerBuilder( Builders.resultClassBuilder( resultClass, getSessionFactory() ) );
+		registerBuilder( Builders.resultClassBuilder( resultClass, getSessionFactory().getMappingMetamodel() ) );
 	}
 
 	@Override
@@ -1093,7 +1090,7 @@ public class NativeQueryImpl<R>
 	public NativeQueryImplementor<R> addAttributeResult(
 			String columnAlias,
 			@SuppressWarnings("rawtypes") SingularAttribute attribute) {
-		registerBuilder( Builders.attributeResult( columnAlias, attribute ) );
+		registerBuilder( Builders.attributeResult( columnAlias, attribute, getSessionFactory() ) );
 		return this;
 	}
 
@@ -1235,10 +1232,6 @@ public class NativeQueryImpl<R>
 			}
 			addAll( querySpaces, (String[]) spaces );
 		}
-	}
-
-	private MappingMetamodelImplementor getMappingMetamodel() {
-		return getSession().getFactory().getRuntimeMetamodels().getMappingMetamodel();
 	}
 
 	@Override
@@ -1647,8 +1640,8 @@ public class NativeQueryImpl<R>
 	}
 
 	@Override
-	public NativeQueryImplementor<R> setMaxResults(int maxResult) {
-		super.setMaxResults( maxResult );
+	public NativeQueryImplementor<R> setMaxResults(int maxResults) {
+		super.setMaxResults( maxResults );
 		return this;
 	}
 
@@ -1666,6 +1659,11 @@ public class NativeQueryImpl<R>
 	@Override
 	public Query<R> setOrder(Order<? super R> order) {
 		throw new UnsupportedOperationException("Ordering not currently supported for native queries");
+	}
+
+	@Override
+	public Query<R> addRestriction(Restriction<? super R> restriction) {
+		throw new UnsupportedOperationException("Restrictions not currently supported for native queries");
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

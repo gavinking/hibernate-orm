@@ -17,9 +17,9 @@ import org.hibernate.HibernateException;
 import org.hibernate.boot.registry.StandardServiceInitiator;
 import org.hibernate.boot.registry.selector.spi.StrategySelector;
 import org.hibernate.engine.jdbc.connections.spi.ConnectionProvider;
+import org.hibernate.engine.jdbc.connections.spi.ConnectionProviderConfigurationException;
 import org.hibernate.internal.CoreLogging;
 import org.hibernate.internal.CoreMessageLogger;
-import org.hibernate.internal.util.StringHelper;
 import org.hibernate.resource.beans.container.spi.BeanContainer;
 import org.hibernate.resource.beans.internal.Helper;
 import org.hibernate.service.spi.ServiceRegistryImplementor;
@@ -43,7 +43,8 @@ import static org.hibernate.cfg.JdbcSettings.URL;
 import static org.hibernate.cfg.JdbcSettings.USER;
 import static org.hibernate.cfg.SchemaToolingSettings.ENABLE_SYNONYMS;
 import static org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentImpl.isMultiTenancyEnabled;
-import static org.hibernate.internal.util.StringHelper.nullIfEmpty;
+import static org.hibernate.internal.util.StringHelper.isBlank;
+import static org.hibernate.internal.util.StringHelper.nullIfBlank;
 
 /**
  * Instantiates and configures an appropriate {@link ConnectionProvider}.
@@ -104,12 +105,12 @@ public class ConnectionProviderInitiator implements StandardServiceInitiator<Con
 			}
 			else if ( explicitSetting instanceof Class<?> providerClass ) {
 				LOG.instantiatingExplicitConnectionProvider( providerClass.getName() );
-				return instantiateExplicitConnectionProvider( providerClass, beanContainer );
+				return instantiateExplicitConnectionProvider( connectionProviderClass( providerClass ), beanContainer );
 			}
 			else {
-				final String providerName = nullIfEmpty( explicitSetting.toString() );
+				final String providerName = nullIfBlank( explicitSetting.toString() );
 				if ( providerName != null ) {
-					return instantiateNamedConnectionProvider(providerName, strategySelector, beanContainer);
+					return instantiateNamedConnectionProvider( providerName, strategySelector, beanContainer );
 				}
 			}
 		}
@@ -117,18 +118,27 @@ public class ConnectionProviderInitiator implements StandardServiceInitiator<Con
 		return instantiateConnectionProvider( configurationValues, strategySelector, beanContainer );
 	}
 
-	private ConnectionProvider instantiateNamedConnectionProvider(String providerName, StrategySelector strategySelector, BeanContainer beanContainer) {
+	private static Class<? extends ConnectionProvider> connectionProviderClass(Class<?> providerClass) {
+		if ( !ConnectionProvider.class.isAssignableFrom( providerClass ) ) {
+			throw new ConnectionProviderConfigurationException( "Class '" + providerClass.getName()
+																+ "' does not implement 'ConnectionProvider'" );
+		}
+		@SuppressWarnings("unchecked")
+		final Class<? extends ConnectionProvider> connectionProviderClass =
+				(Class<? extends ConnectionProvider>) providerClass;
+		return connectionProviderClass;
+	}
+
+	private ConnectionProvider instantiateNamedConnectionProvider(
+			String providerName, StrategySelector strategySelector, BeanContainer beanContainer) {
 		LOG.instantiatingExplicitConnectionProvider( providerName );
-		final Class<?> providerClass =
+		final Class<? extends ConnectionProvider> providerClass =
 				strategySelector.selectStrategyImplementor( ConnectionProvider.class, providerName );
 		try {
 			return instantiateExplicitConnectionProvider( providerClass, beanContainer );
 		}
 		catch (Exception e) {
-			throw new HibernateException(
-					"Could not instantiate connection provider [" + providerName + "]",
-					e
-			);
+			throw new HibernateException( "Could not instantiate connection provider [" + providerName + "]", e );
 		}
 	}
 
@@ -164,7 +174,7 @@ public class ConnectionProviderInitiator implements StandardServiceInitiator<Con
 			return new DriverManagerConnectionProviderImpl();
 		}
 		else {
-			if (beanContainer != null) {
+			if ( beanContainer != null ) {
 				return Helper.getBean(
 					beanContainer,
 					ConnectionProvider.class,
@@ -193,7 +203,8 @@ public class ConnectionProviderInitiator implements StandardServiceInitiator<Con
 				: null;
 	}
 
-	private ConnectionProvider instantiateExplicitConnectionProvider(Class<?> providerClass, BeanContainer beanContainer) {
+	private <T extends ConnectionProvider> T instantiateExplicitConnectionProvider(
+			Class<T> providerClass, BeanContainer beanContainer) {
 		try {
 			if ( beanContainer != null ) {
 				return Helper.getBean(
@@ -203,7 +214,7 @@ public class ConnectionProviderInitiator implements StandardServiceInitiator<Con
 					true,
 					() -> {
 						try {
-							return (ConnectionProvider) providerClass.getConstructor().newInstance();
+							return providerClass.getConstructor().newInstance();
 						}
 						catch (Exception e) {
 							throw new HibernateException( "Could not instantiate connection provider [" + providerClass.getName() + "]", e );
@@ -212,7 +223,7 @@ public class ConnectionProviderInitiator implements StandardServiceInitiator<Con
 				);
 			}
 			else {
-				return (ConnectionProvider) providerClass.getConstructor().newInstance();
+				return providerClass.getConstructor().newInstance();
 			}
 		}
 		catch (Exception e) {
@@ -325,26 +336,35 @@ public class ConnectionProviderInitiator implements StandardServiceInitiator<Con
 			return null;
 		}
 		else if ( setting instanceof Number number ) {
-			return number.intValue();
+			final int isolationLevel = number.intValue();
+			checkIsolationLevel( isolationLevel );
+			return isolationLevel;
 		}
 		else {
 			final String string = setting.toString();
-			if ( StringHelper.isEmpty( string ) ) {
+			if ( isBlank( string ) ) {
 				return null;
 			}
 			else if ( ISOLATION_VALUE_MAP.containsKey( string ) ) {
 				return ISOLATION_VALUE_MAP.get( string );
 			}
 			else {
-				// it could be a String representation of the isolation numeric value...
+				// it could be a String representation of the isolation numeric value
 				try {
-					return Integer.valueOf( string );
+					final int isolationLevel = Integer.parseInt( string );
+					checkIsolationLevel( isolationLevel );
+					return isolationLevel;
 				}
 				catch (NumberFormatException ignore) {
+					throw new ConnectionProviderConfigurationException( "Unknown transaction isolation level: '" + string + "'" );
 				}
-
-				throw new HibernateException("Could not interpret transaction isolation setting [" + setting + "]");
 			}
+		}
+	}
+
+	private static void checkIsolationLevel(int isolationLevel) {
+		if ( !ISOLATION_VALUE_CONSTANT_NAME_MAP.containsKey( isolationLevel ) ) {
+			throw new ConnectionProviderConfigurationException( "Unknown transaction isolation level: " + isolationLevel );
 		}
 	}
 
@@ -399,8 +419,9 @@ public class ConnectionProviderInitiator implements StandardServiceInitiator<Con
 
 	public static void consumeSetting(Map<String, Object> settings, SettingConsumer consumer, String... names) {
 		for ( String name : names ) {
-			if ( settings.containsKey(name) ) {
-				consumer.consumeSetting( name, (String) settings.get(name) );
+			final Object setting = settings.get( name );
+			if ( setting != null ) {
+				consumer.consumeSetting( name, setting.toString() );
 				return;
 			}
 		}

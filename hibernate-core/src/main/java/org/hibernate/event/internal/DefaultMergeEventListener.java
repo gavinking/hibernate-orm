@@ -81,7 +81,8 @@ public class DefaultMergeEventListener
 	@Override
 	public void onMerge(MergeEvent event) throws HibernateException {
 		final EventSource session = event.getSession();
-		final EntityCopyObserver entityCopyObserver = createEntityCopyObserver( session );
+		final EntityCopyObserver entityCopyObserver =
+				session.getFactory().getEntityCopyObserver().createEntityCopyObserver();
 		final MergeContext mergeContext = new MergeContext( session, entityCopyObserver );
 		try {
 			onMerge( event, mergeContext );
@@ -91,10 +92,6 @@ public class DefaultMergeEventListener
 			entityCopyObserver.clear();
 			mergeContext.clear();
 		}
-	}
-
-	private EntityCopyObserver createEntityCopyObserver(final EventSource session) {
-		return session.getFactory().getFastSessionServices().entityCopyObserverFactory.createEntityCopyObserver();
 	}
 
 	/**
@@ -113,7 +110,7 @@ public class DefaultMergeEventListener
 			if ( lazyInitializer != null ) {
 				if ( lazyInitializer.isUninitialized() ) {
 					LOG.trace( "Ignoring uninitialized proxy" );
-					event.setResult( source.load( lazyInitializer.getEntityName(), lazyInitializer.getInternalIdentifier() ) );
+					event.setResult( source.getReference( lazyInitializer.getEntityName(), lazyInitializer.getInternalIdentifier() ) );
 				}
 				else {
 					doMerge( event, copiedAlready, lazyInitializer.getImplementation() );
@@ -124,7 +121,8 @@ public class DefaultMergeEventListener
 						asPersistentAttributeInterceptable( original ).$$_hibernate_getInterceptor();
 				if ( interceptor instanceof EnhancementAsProxyLazinessInterceptor proxyInterceptor ) {
 					LOG.trace( "Ignoring uninitialized enhanced-proxy" );
-					event.setResult( source.load( proxyInterceptor.getEntityName(), proxyInterceptor.getIdentifier() ) );
+					event.setResult( source.byId( proxyInterceptor.getEntityName() )
+							.getReference( proxyInterceptor.getIdentifier() ) );
 				}
 				else {
 					doMerge( event, copiedAlready, original );

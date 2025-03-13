@@ -5,7 +5,7 @@
 package org.hibernate.query.sqm.tree.expression;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.hibernate.query.ReturnableType;
+import org.hibernate.metamodel.model.domain.ReturnableType;
 import org.hibernate.query.criteria.JpaCastTarget;
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SemanticQueryWalker;
@@ -93,21 +93,21 @@ public class SqmCastTarget<T> extends AbstractSqmNode implements SqmTypedNode<T>
 	}
 
 	@Override
-	public void appendHqlString(StringBuilder sb) {
-		sb.append( type.getTypeName() );
+	public void appendHqlString(StringBuilder hql) {
+		hql.append( type.getTypeName() );
 		if ( precision != null ) {
-			sb.append( '(' );
-			sb.append( precision );
+			hql.append( '(' );
+			hql.append( precision );
 			if ( scale != null ) {
-				sb.append( ", " );
-				sb.append( scale );
+				hql.append( ", " );
+				hql.append( scale );
 			}
-			sb.append( ')' );
+			hql.append( ')' );
 		}
 		else if ( length != null ) {
-			sb.append( '(' );
-			sb.append( length );
-			sb.append( ')' );
+			hql.append( '(' );
+			hql.append( length );
+			hql.append( ')' );
 		}
 	}
 }

@@ -71,7 +71,7 @@ import org.hibernate.query.criteria.JpaJsonValueNode;
 import org.hibernate.query.criteria.JpaRoot;
 import org.hibernate.query.criteria.JpaSearchOrder;
 import org.hibernate.query.criteria.JpaXmlTableColumnNode;
-import org.hibernate.query.derived.AnonymousTupleType;
+import org.hibernate.query.sqm.tuple.internal.AnonymousTupleType;
 import org.hibernate.query.hql.HqlLogging;
 import org.hibernate.query.hql.spi.DotIdentifierConsumer;
 import org.hibernate.query.hql.spi.SemanticPathPart;
@@ -125,7 +125,6 @@ import org.hibernate.query.sqm.tree.domain.SqmCorrelation;
 import org.hibernate.query.sqm.tree.domain.SqmCteRoot;
 import org.hibernate.query.sqm.tree.domain.SqmDerivedRoot;
 import org.hibernate.query.sqm.tree.domain.SqmElementAggregateFunction;
-import org.hibernate.query.sqm.tree.domain.SqmEntityValuedSimplePath;
 import org.hibernate.query.sqm.tree.domain.SqmFkExpression;
 import org.hibernate.query.sqm.tree.domain.SqmFunctionRoot;
 import org.hibernate.query.sqm.tree.domain.SqmIndexAggregateFunction;
@@ -241,6 +240,9 @@ import static org.hibernate.query.common.TemporalUnit.TIMEZONE_MINUTE;
 import static org.hibernate.query.common.TemporalUnit.WEEK_OF_MONTH;
 import static org.hibernate.query.common.TemporalUnit.WEEK_OF_YEAR;
 import static org.hibernate.query.sqm.internal.SqmUtil.resolveExpressibleJavaTypeClass;
+import static org.hibernate.query.sqm.tree.select.SqmDynamicInstantiation.forClassInstantiation;
+import static org.hibernate.query.sqm.tree.select.SqmDynamicInstantiation.forListInstantiation;
+import static org.hibernate.query.sqm.tree.select.SqmDynamicInstantiation.forMapInstantiation;
 import static org.hibernate.type.descriptor.DateTimeUtils.DATE_TIME;
 import static org.hibernate.type.spi.TypeConfiguration.isJdbcTemporalType;
 
@@ -1428,8 +1430,8 @@ public class SemanticQueryBuilder<R> extends HqlParserBaseVisitor<Object> implem
 				//		- this is not strictly JPA compliant
 				if ( creationOptions.useStrictJpaCompliance() ) {
 					SqmTreeCreationLogger.LOGGER.debugf(
-							"Raw selection of plural attribute not supported by JPA: %s.  Use `value(%s)` or `key(%s)` to indicate what part of the collection to select",
-							sqmPath.getAlias(),
+							"Raw selection of plural attribute not supported by JPA."
+								+ " Use 'value(%s)' or 'key(%s)' to indicate what part of the collection to select",
 							sqmPath.getAlias(),
 							sqmPath.getAlias()
 					);
@@ -1448,35 +1450,7 @@ public class SemanticQueryBuilder<R> extends HqlParserBaseVisitor<Object> implem
 
 	@Override
 	public SqmDynamicInstantiation<?> visitInstantiation(HqlParser.InstantiationContext ctx) {
-		final SqmDynamicInstantiation<?> dynamicInstantiation;
-		final ParseTree instantiationTarget = ctx.instantiationTarget().getChild( 0 );
-		if ( instantiationTarget instanceof HqlParser.SimplePathContext ) {
-			String className = instantiationTarget.getText();
-			if ( expectedResultTypeName != null && expectedResultTypeShortName.equals( className ) ) {
-				className = expectedResultTypeName;
-			}
-			try {
-				dynamicInstantiation = SqmDynamicInstantiation.forClassInstantiation(
-						resolveInstantiationTargetJtd( className ),
-						creationContext.getNodeBuilder()
-				);
-			}
-			catch (ClassLoadingException e) {
-				throw new SemanticException( "Could not resolve class '" + className + "' named for instantiation",
-						query );
-			}
-		}
-		else {
-			final TerminalNode terminalNode = (TerminalNode) instantiationTarget;
-			dynamicInstantiation = switch ( terminalNode.getSymbol().getType() ) {
-				case HqlParser.MAP -> SqmDynamicInstantiation.forMapInstantiation( mapJavaType,
-						creationContext.getNodeBuilder() );
-				case HqlParser.LIST -> SqmDynamicInstantiation.forListInstantiation( listJavaType,
-						creationContext.getNodeBuilder() );
-				default -> throw new UnsupportedOperationException( "Unsupported instantiation target: " + terminalNode );
-			};
-		}
-
+		final SqmDynamicInstantiation<?> dynamicInstantiation = visitInstantiationTarget( ctx.instantiationTarget() );
 		for ( HqlParser.InstantiationArgumentContext arg : ctx.instantiationArguments().instantiationArgument() ) {
 			dynamicInstantiation.addArgument( visitInstantiationArgument( arg ) );
 		}
@@ -1494,7 +1468,37 @@ public class SemanticQueryBuilder<R> extends HqlParserBaseVisitor<Object> implem
 		return dynamicInstantiation;
 	}
 
-	private JavaType<?> resolveInstantiationTargetJtd(String className) {
+	@Override
+	public SqmDynamicInstantiation<?> visitInstantiationTarget(HqlParser.InstantiationTargetContext ctx) {
+		if ( ctx.MAP() != null ) {
+			return forMapInstantiation( mapJavaType, creationContext.getNodeBuilder() );
+		}
+		else if ( ctx.LIST() != null ) {
+			return forListInstantiation( listJavaType, creationContext.getNodeBuilder() );
+		}
+		else {
+			final HqlParser.SimplePathContext simplePath = ctx.simplePath();
+			if ( simplePath == null ) {
+				throw new SyntaxException( "Missing instantiation target type" );
+			}
+			final String className = instantiationClassName( simplePath );
+			try {
+				return forClassInstantiation( resolveInstantiationTargetType( className ), creationContext.getNodeBuilder() );
+			}
+			catch (ClassLoadingException e) {
+				throw new SemanticException( "Could not resolve class '" + className + "' named for instantiation", query );
+			}
+		}
+	}
+
+	private String instantiationClassName(HqlParser.SimplePathContext ctx) {
+		final String name = ctx.getText();
+		return expectedResultTypeName != null && expectedResultTypeShortName.equals( name )
+				? expectedResultTypeName
+				: name;
+	}
+
+	private JavaType<?> resolveInstantiationTargetType(String className) {
 		final String qualifiedName = creationContext.getJpaMetamodel().qualifyImportableName( className );
 		final Class<?> targetJavaType = creationContext.classForName( qualifiedName );
 		return creationContext.getTypeConfiguration().getJavaTypeRegistry().resolveDescriptor( targetJavaType );
@@ -1504,20 +1508,13 @@ public class SemanticQueryBuilder<R> extends HqlParserBaseVisitor<Object> implem
 	public SqmDynamicInstantiationArgument<?> visitInstantiationArgument(HqlParser.InstantiationArgumentContext ctx) {
 		final HqlParser.VariableContext variable = ctx.variable();
 		final String alias = variable == null ? null : extractAlias( variable );
-
 		final SqmSelectableNode<?> argExpression =
 				(SqmSelectableNode<?>) ctx.instantiationArgumentExpression().accept( this );
-
-		final SqmDynamicInstantiationArgument<?> argument = new SqmDynamicInstantiationArgument<>(
-				argExpression,
-				alias,
-				creationContext.getNodeBuilder()
-		);
-
+		final SqmDynamicInstantiationArgument<?> argument =
+				new SqmDynamicInstantiationArgument<>( argExpression, alias, creationContext.getNodeBuilder() );
 		if ( !(argExpression instanceof SqmDynamicInstantiation) ) {
 			processingStateStack.getCurrent().getPathRegistry().register( argument );
 		}
-
 		return argument;
 	}
 
@@ -3581,7 +3578,7 @@ public class SemanticQueryBuilder<R> extends HqlParserBaseVisitor<Object> implem
 			);
 
 		}
-		return new SqmFkExpression<>( (SqmEntityValuedSimplePath<?>) sqmPath );
+		return new SqmFkExpression<>( sqmPath );
 	}
 
 	@Override

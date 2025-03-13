@@ -4,7 +4,7 @@
  */
 package org.hibernate.query.sqm.tree.expression;
 
-import org.hibernate.query.ReturnableType;
+import org.hibernate.metamodel.model.domain.ReturnableType;
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SemanticQueryWalker;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
@@ -64,9 +64,9 @@ public class SqmToDuration<T> extends AbstractSqmExpression<T> {
 	}
 
 	@Override
-	public void appendHqlString(StringBuilder sb) {
-		magnitude.appendHqlString( sb );
-		sb.append( ' ' );
-		sb.append( unit.getUnit() );
+	public void appendHqlString(StringBuilder hql) {
+		magnitude.appendHqlString( hql );
+		hql.append( ' ' );
+		hql.append( unit.getUnit() );
 	}
 }

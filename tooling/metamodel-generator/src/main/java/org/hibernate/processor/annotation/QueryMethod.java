@@ -10,7 +10,9 @@ import org.hibernate.internal.util.StringHelper;
 import javax.lang.model.element.ExecutableElement;
 import java.util.List;
 
+import static org.hibernate.processor.util.Constants.BOOLEAN;
 import static org.hibernate.processor.util.Constants.QUERY;
+import static org.hibernate.processor.util.Constants.VOID;
 import static org.hibernate.processor.util.StringUtil.getUpperUnderscoreCaseFromLowerCamelCase;
 
 /**
@@ -80,7 +82,7 @@ public class QueryMethod extends AbstractQueryMethod {
 
 	@Override
 	boolean singleResult() {
-		return containerType == null;
+		return containerType == null && !isUpdate;
 	}
 
 	@Override
@@ -95,6 +97,7 @@ public class QueryMethod extends AbstractQueryMethod {
 		tryReturn( declaration, paramTypes, containerType );
 		castResult( declaration );
 		createQuery( declaration );
+		handleRestrictionParameters( declaration, paramTypes );
 		setParameters( declaration, paramTypes, "");
 		handlePageParameters( declaration, paramTypes, containerType );
 		boolean unwrapped = !isUsingEntityManager();
@@ -150,14 +153,23 @@ public class QueryMethod extends AbstractQueryMethod {
 	private void execute(StringBuilder declaration, boolean unwrapped) {
 		if ( isUpdate ) {
 			declaration
-					.append("\t\t\t")
-					.append(".executeUpdate()");
-			if ( "boolean".equals(returnTypeName) ) {
-				declaration
-						.append(" > 0");
+					.append("\t\t\t.executeUpdate()");
+			if ( isReactive() ) {
+				if ( VOID.equals(returnTypeName) ) {
+					declaration
+							.append( "\n\t\t\t.replaceWithVoid()" );
+				}
+				else if ( BOOLEAN.equals(returnTypeName) ) {
+					declaration
+							.append( "\n\t\t\t.map(rows -> rows>0)" );
+				}
 			}
-			declaration
-					.append(";\n");
+			else {
+				if ( "boolean".equals( returnTypeName ) ) {
+					declaration
+							.append( " > 0" );
+				}
+			}
 		}
 		else {
 			final boolean mustUnwrap =

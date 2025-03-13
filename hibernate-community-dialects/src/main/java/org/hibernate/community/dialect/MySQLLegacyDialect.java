@@ -240,6 +240,16 @@ public class MySQLLegacyDialect extends Dialect {
 		}
 	}
 
+	/**
+	 * MySQL strips any trailing space character from a
+	 * value stored in a column of type {@code char(n)}.
+	 * @return {@code true}
+	 */
+	@Override
+	public boolean stripsTrailingSpacesFromChar() {
+		return true;
+	}
+
 	@Override
 	public boolean useMaterializedLobWhenCapacityExceeded() {
 		// MySQL has no real concept of LOBs, so we can just use longtext/longblob with the materialized JDBC APIs
@@ -618,10 +628,7 @@ public class MySQLLegacyDialect extends Dialect {
 		BasicTypeRegistry basicTypeRegistry = functionContributions.getTypeConfiguration().getBasicTypeRegistry();
 
 		SqmFunctionRegistry functionRegistry = functionContributions.getFunctionRegistry();
-		functionRegistry.noArgsBuilder( "localtime" )
-				.setInvariantType(basicTypeRegistry.resolve( StandardBasicTypes.TIMESTAMP ))
-				.setUseParenthesesWhenNoArgs( false )
-				.register();
+
 		// pi() produces a value with 7 digits unless we're explicit
 		if ( getMySQLVersion().isSameOrAfter( 8 ) ) {
 			functionRegistry.patternDescriptorBuilder( "pi", "cast(pi() as double)" )
@@ -887,7 +894,7 @@ public class MySQLLegacyDialect extends Dialect {
 	public String getQueryHintString(String query, String hints) {
 		return getMySQLVersion().isBefore( 5 )
 				? super.getQueryHintString( query, hints )
-				: addQueryHints( query, hints );
+				: addUseIndexQueryHint( query, hints );
 	}
 
 	/**

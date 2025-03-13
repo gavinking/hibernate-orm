@@ -35,6 +35,7 @@ import jakarta.persistence.Parameter;
 import jakarta.persistence.TemporalType;
 import org.hibernate.engine.profile.DefaultFetchProfile;
 import org.hibernate.graph.GraphSemantic;
+import org.hibernate.query.restriction.Restriction;
 
 /**
  * Within the context of an active {@linkplain org.hibernate.Session session},
@@ -99,6 +100,11 @@ import org.hibernate.graph.GraphSemantic;
  * every {@link jakarta.persistence.FetchType#EAGER eager} {@code @ManyToOne} or
  * {@code @OneToOne} association belonging to an entity returned by the query.
  * <p>
+ * The method {@link #addRestriction(Restriction)} allows application of additional
+ * {@linkplain Restriction filtering} to the query results. The static factory
+ * methods of {@code Restriction} are used to express filtering criteria of various
+ * kinds.
+ * <p>
  * Finally, two alternative approaches to pagination are available:
  * <ol>
  * <li>
@@ -106,6 +112,13 @@ import org.hibernate.graph.GraphSemantic;
  * with {@link Order} and {@link Page}, provide a streamlined API for offset-based
  * pagination, at a slightly higher semantic level than the ancient but dependable
  * {@link #setFirstResult(int)} and {@link #setMaxResults(int)}.
+ * <pre>
+ * session.createSelectionQuery("from Book", Book.class)
+ *         .addRestriction(Restriction.contains(Book_.title, "hibernate", false))
+ *         .setOrder(Order.desc(Book_.title))
+ *         .setPage(Page.first(50))
+ *         .getResultList() );
+ * </pre>
  * <li>
  * On the other hand, {@link KeyedPage} and {@link KeyedResultList}, along with
  * {@link #getKeyedResultList(KeyedPage)}, provide for <em>key-based pagination</em>,
@@ -403,25 +416,34 @@ public interface SelectionQuery<R> extends CommonQueryContract {
 	SelectionQuery<R> setReadOnly(boolean readOnly);
 
 	/**
-	 * The max number of rows requested for the query results
+	 * The maximum number of query result rows to return.
+	 *
+	 * @return the maximum length of the query result list
 	 */
 	int getMaxResults();
 
 	/**
-	 * Set the max number of rows requested for the query results. Applied
-	 * to the SQL query
+	 * Set the maximum number of query result rows to return.
+	 *
+	 * @param maxResults the maximum length of the query result list
 	 */
-	SelectionQuery<R> setMaxResults(int maxResult);
+	SelectionQuery<R> setMaxResults(int maxResults);
 
 	/**
-	 * The first row position to return from the query results. Applied
-	 * to the SQL query.
+	 * The first query result row to return. The very first row
+	 * of the query result list is considered the zeroth row.
+	 *
+	 * @return the position of the first row to return,
+	 *         indexed from zero
 	 */
 	int getFirstResult();
 
 	/**
-	 * Set the first row position to return from the query results. Applied
-	 * to the SQL query.
+	 * Set the first query result row to return. The very first
+	 * row of the query result list is considered the zeroth row.
+	 *
+	 * @param startPosition the position of the first row to return,
+	 *                      indexed from zero
 	 */
 	SelectionQuery<R> setFirstResult(int startPosition);
 
@@ -604,6 +626,19 @@ public interface SelectionQuery<R> extends CommonQueryContract {
 	 */
 	@Incubating
 	SelectionQuery<R> setOrder(Order<? super R> order);
+
+	/**
+	 * If the result type of this query is an entity class, add a
+	 * {@linkplain Restriction rule} for restricting the query results.
+	 *
+	 * @param restriction an instance of {@link Restriction}
+	 *
+	 * @see Restriction
+	 *
+	 * @since 7.0
+	 */
+	@Incubating
+	SelectionQuery<R> addRestriction(Restriction<? super R> restriction);
 
 	/**
 	 * Specifies whether follow-on locking should be applied

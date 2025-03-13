@@ -13,6 +13,7 @@ import org.hibernate.boot.model.relational.Database;
 import org.hibernate.boot.spi.InFlightMetadataCollector;
 import org.hibernate.boot.spi.MetadataBuildingContext;
 import org.hibernate.boot.spi.PropertyData;
+import org.hibernate.internal.util.StringHelper;
 import org.hibernate.mapping.Column;
 import org.hibernate.mapping.PersistentClass;
 import org.hibernate.mapping.SimpleValue;
@@ -191,7 +192,8 @@ public class AnnotatedJoinColumn extends AnnotatedColumn {
 			setUpdatable( joinColumn.updatable() );
 			setReferencedColumn( joinColumn.referencedColumnName() );
 			applyColumnCheckConstraint( joinColumn );
-			setOptions( joinColumn.options() );
+			applyColumnComment( joinColumn );
+			applyColumnOptions( joinColumn );
 
 			final String table = joinColumn.table();
 			if ( table.isBlank() ) {
@@ -234,17 +236,20 @@ public class AnnotatedJoinColumn extends AnnotatedColumn {
 		final String columnDefinition;
 		final String referencedColumnName;
 		final String options;
+		final String comment;
 		if ( primaryKeyJoinColumn != null ) {
 			columnName = primaryKeyJoinColumn.name();
 			columnDefinition = primaryKeyJoinColumn.columnDefinition();
 			referencedColumnName = primaryKeyJoinColumn.referencedColumnName();
 			options = primaryKeyJoinColumn.options();
+			comment = null;
 		}
 		else {
 			columnName = joinColumn.name();
 			columnDefinition = joinColumn.columnDefinition();
 			referencedColumnName = joinColumn.referencedColumnName();
 			options = joinColumn.options();
+			comment = joinColumn.comment();
 		}
 
 		final ObjectNameNormalizer normalizer = context.getObjectNameNormalizer();
@@ -259,6 +264,7 @@ public class AnnotatedJoinColumn extends AnnotatedColumn {
 //		column.setPropertyHolder(propertyHolder);
 //		column.setJoins(joins);
 //		column.setContext( context );
+		column.setComment( comment );
 		column.setOptions( options );
 		column.setImplicit( false );
 		column.setNullable( false );
@@ -311,7 +317,7 @@ public class AnnotatedJoinColumn extends AnnotatedColumn {
 			Column referencedColumn,
 			PersistentClass referencedEntity,
 			SimpleValue value) {
-		int columnIndex = getParent().getJoinColumns().indexOf(this);
+		final int columnIndex = getParent().getJoinColumns().indexOf( this );
 		linkValueUsingDefaultColumnNaming( columnIndex, referencedColumn, referencedEntity, value );
 	}
 
@@ -338,7 +344,9 @@ public class AnnotatedJoinColumn extends AnnotatedColumn {
 				referencedColumn.getTemporalPrecision(),
 				referencedColumn.getArrayLength(),
 				mappingColumn != null && mappingColumn.isNullable(),
-				referencedColumn.getSqlType(),
+				mappingColumn != null && mappingColumn.getSqlType() != null
+						? mappingColumn.getSqlType()
+						: referencedColumn.getSqlType(),
 				mappingColumn != null && mappingColumn.isUnique(),
 				false
 		);
@@ -445,7 +453,9 @@ public class AnnotatedJoinColumn extends AnnotatedColumn {
 
 	@Override
 	public void redefineColumnName(String columnName, String propertyName, boolean applyNamingStrategy) {
-		super.redefineColumnName( columnName, null, applyNamingStrategy );
+		if ( StringHelper.isNotEmpty( columnName ) ) {
+			getMappingColumn().setName( processColumnName( columnName, applyNamingStrategy ) );
+		}
 	}
 
 	static AnnotatedJoinColumn buildImplicitJoinTableJoinColumn(
@@ -508,7 +518,7 @@ public class AnnotatedJoinColumn extends AnnotatedColumn {
 
 	@Override
 	public void setParent(AnnotatedColumns parent) {
-		if ( !(parent instanceof  AnnotatedJoinColumns) ) {
+		if ( !(parent instanceof AnnotatedJoinColumns) ) {
 			throw new UnsupportedOperationException("wrong kind of parent");
 		}
 		super.setParent( parent );
@@ -520,5 +530,15 @@ public class AnnotatedJoinColumn extends AnnotatedColumn {
 
 	private void applyColumnCheckConstraint(jakarta.persistence.JoinColumn column) {
 		applyCheckConstraints( column.check() );
+	}
+
+	private void applyColumnOptions(jakarta.persistence.JoinColumn column) {
+		options = column.options();
+	}
+
+	private void applyColumnComment(jakarta.persistence.JoinColumn column) {
+		if ( !column.comment().isBlank() ) {
+			comment = column.comment();
+		}
 	}
 }

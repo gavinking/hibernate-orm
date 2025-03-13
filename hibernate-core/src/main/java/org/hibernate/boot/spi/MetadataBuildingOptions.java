@@ -205,8 +205,6 @@ public interface MetadataBuildingOptions {
 	 */
 	boolean useNationalizedCharacterData();
 
-	boolean isSpecjProprietarySyntaxEnabled();
-
 	/**
 	 * Should we <em>disable</em> constraint creation when
 	 * {@link jakarta.persistence.ConstraintMode#PROVIDER_DEFAULT}?

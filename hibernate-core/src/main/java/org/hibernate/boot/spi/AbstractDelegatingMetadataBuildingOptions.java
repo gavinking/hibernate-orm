@@ -131,11 +131,6 @@ public abstract class AbstractDelegatingMetadataBuildingOptions implements Metad
 	}
 
 	@Override
-	public boolean isSpecjProprietarySyntaxEnabled() {
-		return delegate.isSpecjProprietarySyntaxEnabled();
-	}
-
-	@Override
 	public boolean isNoConstraintByDefault() {
 		return delegate.isNoConstraintByDefault();
 	}

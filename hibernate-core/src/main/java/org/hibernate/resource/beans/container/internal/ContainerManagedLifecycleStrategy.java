@@ -73,6 +73,11 @@ public class ContainerManagedLifecycleStrategy implements BeanLifecycleStrategy 
 		}
 
 		@Override
+		public Class<B> getBeanClass() {
+			return beanType;
+		}
+
+		@Override
 		public B getBeanInstance() {
 			if ( beanInstance == null ) {
 				initialize();
@@ -199,7 +204,7 @@ public class ContainerManagedLifecycleStrategy implements BeanLifecycleStrategy 
 				return root.select( beanType, new NamedBeanQualifier( beanName ) );
 			}
 			catch (Exception e) {
-				throw new NoSuchBeanException( "Bean class not known to CDI : " + beanType.getName(), e );
+				throw new NoSuchBeanException( "Bean class not known to CDI: " + beanType.getName(), e );
 			}
 		}
 

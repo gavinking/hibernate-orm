@@ -11,25 +11,24 @@ import org.hibernate.engine.jdbc.spi.JdbcServices;
 import org.hibernate.engine.spi.EntityKey;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.event.spi.EventSource;
-import org.hibernate.event.spi.LoadEvent;
-import org.hibernate.event.spi.LoadEventListener;
 import org.hibernate.loader.ast.spi.MultiIdEntityLoader;
 import org.hibernate.loader.ast.spi.MultiIdLoadOptions;
+import org.hibernate.loader.internal.CacheLoadHelper.PersistenceContextEntry;
 import org.hibernate.metamodel.mapping.EntityIdentifierMapping;
 import org.hibernate.metamodel.mapping.EntityMappingType;
+import org.hibernate.persister.entity.EntityPersister;
 import org.hibernate.sql.ast.SqlAstTranslatorFactory;
 import org.hibernate.sql.exec.spi.JdbcSelectExecutor;
 import org.hibernate.type.descriptor.java.JavaType;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.hibernate.event.spi.LoadEventListener.GET;
 import static org.hibernate.internal.util.collections.CollectionHelper.arrayList;
 import static org.hibernate.internal.util.collections.CollectionHelper.isEmpty;
-import static org.hibernate.loader.ast.internal.CacheEntityLoaderHelper.loadFromSessionCacheStatic;
-import static org.hibernate.loader.ast.internal.LoaderHelper.getReadOnlyFromLoadQueryInfluencers;
 import static org.hibernate.loader.ast.internal.MultiKeyLoadLogging.MULTI_KEY_LOAD_LOGGER;
+import static org.hibernate.loader.internal.CacheLoadHelper.loadFromSessionCache;
 
 /**
  * Base support for {@link MultiIdEntityLoader} implementations.
@@ -39,14 +38,12 @@ import static org.hibernate.loader.ast.internal.MultiKeyLoadLogging.MULTI_KEY_LO
 public abstract class AbstractMultiIdEntityLoader<T> implements MultiIdEntityLoader<T> {
 	private final EntityMappingType entityDescriptor;
 	private final SessionFactoryImplementor sessionFactory;
-	private final EntityIdentifierMapping identifierMapping;
-	protected final Object[] idArray;
+	protected final EntityIdentifierMapping identifierMapping;
 
 	public AbstractMultiIdEntityLoader(EntityMappingType entityDescriptor, SessionFactoryImplementor sessionFactory) {
 		this.entityDescriptor = entityDescriptor;
 		this.sessionFactory = sessionFactory;
 		identifierMapping = getLoadable().getIdentifierMapping();
-		idArray = (Object[]) Array.newInstance( identifierMapping.getJavaType().getJavaTypeClass(), 0 );
 	}
 
 	protected EntityMappingType getEntityDescriptor() {
@@ -187,35 +184,23 @@ public abstract class AbstractMultiIdEntityLoader<T> implements MultiIdEntityLoa
 			EntityKey entityKey,
 			List<Object> result,
 			int i) {
-		if ( loadOptions.isSessionCheckingEnabled() || loadOptions.isSecondLevelCacheCheckingEnabled() ) {
-			return loadFromCaches( loadOptions, entityKey, result, i,
-					new LoadEvent(
-							id,
-							getLoadable().getJavaType().getJavaTypeClass().getName(),
-							lockOptions,
-							session,
-							getReadOnlyFromLoadQueryInfluencers( session )
-					)
-			);
-		}
-		else {
-			return false;
-		}
+		return ( loadOptions.isSessionCheckingEnabled() || loadOptions.isSecondLevelCacheCheckingEnabled() )
+			&& isLoadFromCaches( loadOptions, entityKey, lockOptions, result, i, session );
 	}
 
-	private boolean loadFromCaches(
+	private boolean isLoadFromCaches(
 			MultiIdLoadOptions loadOptions,
 			EntityKey entityKey,
-			List<Object> result,
-			int i,
-			LoadEvent loadEvent) {
+			LockOptions lockOptions,
+			List<Object> result, int i,
+			EventSource session) {
 		Object managedEntity = null;
 
 		if ( loadOptions.isSessionCheckingEnabled() ) {
 			// look for it in the Session first
-			final CacheEntityLoaderHelper.PersistenceContextEntry persistenceContextEntry =
-					loadFromSessionCacheStatic( loadEvent, entityKey, LoadEventListener.GET );
-			managedEntity = persistenceContextEntry.getEntity();
+			final PersistenceContextEntry persistenceContextEntry =
+					loadFromSessionCache( entityKey, lockOptions, GET, session );
+			managedEntity = persistenceContextEntry.entity();
 
 			if ( managedEntity != null
 					&& !loadOptions.isReturnOfDeletedEntitiesEnabled()
@@ -229,11 +214,8 @@ public abstract class AbstractMultiIdEntityLoader<T> implements MultiIdEntityLoa
 		if ( managedEntity == null
 				&& loadOptions.isSecondLevelCacheCheckingEnabled() ) {
 			// look for it in the SessionFactory
-			managedEntity = CacheEntityLoaderHelper.INSTANCE.loadFromSecondLevelCache(
-					loadEvent,
-					getLoadable().getEntityPersister(),
-					entityKey
-			);
+			final EntityPersister persister = getLoadable().getEntityPersister();
+			managedEntity = session.loadFromSecondLevelCache( persister, entityKey, null, lockOptions.getLockMode() );
 		}
 
 		if ( managedEntity != null ) {
@@ -275,9 +257,9 @@ public abstract class AbstractMultiIdEntityLoader<T> implements MultiIdEntityLoa
 			ResolutionConsumer<R> resolutionConsumer) {
 		return loadOptions.isSessionCheckingEnabled() || loadOptions.isSecondLevelCacheCheckingEnabled()
 				// the user requested that we exclude ids corresponding to already managed
-				// entities from the generated load SQL.  So here we will iterate all
+				// entities from the generated load SQL. So here we will iterate all
 				// incoming id values and see whether it corresponds to an existing
-				// entity associated with the PC - if it does we add it to the result
+				// entity associated with the PC. If it does, we add it to the result
 				// list immediately and remove its id from the group of ids to load.
 				// we'll load all of them from the database
 				? resolveInCaches( ids, loadOptions, lockOptions, session, resolutionConsumer )
@@ -298,15 +280,8 @@ public abstract class AbstractMultiIdEntityLoader<T> implements MultiIdEntityLoa
 		for ( int i = 0; i < ids.length; i++ ) {
 			final Object id = idCoercionEnabled ? idType.coerce( ids[i], session ) : ids[i];
 			final EntityKey entityKey = new EntityKey( id, getLoadable().getEntityPersister() );
-			unresolvedIds = loadFromCaches( id, entityKey, i, unresolvedIds, loadOptions, resolutionConsumer,
-					new LoadEvent(
-							id,
-							getLoadable().getJavaType().getJavaTypeClass().getName(),
-							lockOptions,
-							session,
-							getReadOnlyFromLoadQueryInfluencers( session )
-					)
-			);
+			unresolvedIds =
+					loadFromCaches( loadOptions, lockOptions, resolutionConsumer, id, entityKey, unresolvedIds, i, session );
 		}
 
 		if ( isEmpty( unresolvedIds ) ) {
@@ -319,9 +294,12 @@ public abstract class AbstractMultiIdEntityLoader<T> implements MultiIdEntityLoa
 		}
 		else {
 			// we need to load only some the ids
-			return unresolvedIds.toArray( idArray );
+			return toIdArray( unresolvedIds );
 		}
 	}
+
+	// Depending on the implementation, a specific subtype of Object[] (e.g. Integer[]) may be needed.
+	protected abstract Object[] toIdArray(List<Object> ids);
 
 	private boolean isIdCoercionEnabled() {
 		return !getSessionFactory().getJpaMetamodel().getJpaCompliance().isLoadByIdComplianceEnabled();
@@ -330,39 +308,44 @@ public abstract class AbstractMultiIdEntityLoader<T> implements MultiIdEntityLoa
 	public interface ResolutionConsumer<T> {
 		void consume(int position, EntityKey entityKey, T resolvedRef);
 	}
-	private <R, K> List<K> loadFromCaches(
-			K id, EntityKey entityKey, int i,
-			List<K> unresolvedIds,
+
+	private <R> List<Object> loadFromCaches(
 			MultiIdLoadOptions loadOptions,
+			LockOptions lockOptions,
 			ResolutionConsumer<R> resolutionConsumer,
-			LoadEvent loadEvent) {
-		Object cachedEntity = null;
+			Object id,
+			EntityKey entityKey,
+			List<Object> unresolvedIds, int i,
+			EventSource session) {
 
 		// look for it in the Session first
-		final CacheEntityLoaderHelper.PersistenceContextEntry persistenceContextEntry =
-				loadFromSessionCacheStatic( loadEvent, entityKey, LoadEventListener.GET );
+		final PersistenceContextEntry persistenceContextEntry =
+				loadFromSessionCache( entityKey, lockOptions, GET, session );
+		final Object sessionEntity;
 		if ( loadOptions.isSessionCheckingEnabled() ) {
-			cachedEntity = persistenceContextEntry.getEntity();
-
-			if ( cachedEntity != null
+			sessionEntity = persistenceContextEntry.entity();
+			if ( sessionEntity != null
 					&& !loadOptions.isReturnOfDeletedEntitiesEnabled()
 					&& !persistenceContextEntry.isManaged() ) {
 				resolutionConsumer.consume( i, entityKey, null );
 				return unresolvedIds;
 			}
 		}
+		else {
+			sessionEntity = null;
+		}
 
-		if ( cachedEntity == null && loadOptions.isSecondLevelCacheCheckingEnabled() ) {
-			cachedEntity = CacheEntityLoaderHelper.INSTANCE.loadFromSecondLevelCache(
-					loadEvent,
-					getLoadable().getEntityPersister(),
-					entityKey
-			);
+		final Object cachedEntity;
+		if ( sessionEntity == null && loadOptions.isSecondLevelCacheCheckingEnabled() ) {
+			cachedEntity = session.loadFromSecondLevelCache( getLoadable().getEntityPersister(), entityKey, null, lockOptions.getLockMode() );
+		}
+		else {
+			cachedEntity = sessionEntity;
 		}
 
 		if ( cachedEntity != null ) {
 			//noinspection unchecked
-			resolutionConsumer.consume( i, entityKey, (R) cachedEntity);
+			resolutionConsumer.consume( i, entityKey, (R) cachedEntity );
 		}
 		else {
 			if ( unresolvedIds == null ) {

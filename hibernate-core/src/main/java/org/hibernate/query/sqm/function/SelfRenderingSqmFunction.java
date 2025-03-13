@@ -11,7 +11,7 @@ import java.util.function.Supplier;
 import org.hibernate.metamodel.mapping.BasicValuedMapping;
 import org.hibernate.metamodel.mapping.MappingModelExpressible;
 import org.hibernate.metamodel.spi.MappingMetamodelImplementor;
-import org.hibernate.query.ReturnableType;
+import org.hibernate.metamodel.model.domain.ReturnableType;
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SqmExpressible;
 import org.hibernate.query.sqm.produce.function.ArgumentsValidator;
@@ -201,10 +201,8 @@ public class SelfRenderingSqmFunction<T> extends SqmFunction<T> {
 			mapping = returnTypeResolver.resolveFunctionReturnType(
 					() -> {
 						try {
-							final MappingMetamodelImplementor domainModel = walker.getCreationContext()
-									.getSessionFactory()
-									.getRuntimeMetamodels()
-									.getMappingMetamodel();
+							final MappingMetamodelImplementor domainModel =
+									walker.getCreationContext().getMappingMetamodel();
 							return (BasicValuedMapping) domainModel.resolveMappingExpressible(
 									getNodeType(),
 									walker.getFromClauseAccess()::getTableGroup

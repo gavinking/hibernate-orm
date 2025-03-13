@@ -15,7 +15,7 @@ import org.hibernate.metamodel.mapping.EntityMappingType;
 import org.hibernate.metamodel.mapping.JdbcMappingContainer;
 import org.hibernate.metamodel.mapping.ModelPart;
 import org.hibernate.query.IllegalQueryOperationException;
-import org.hibernate.query.derived.AnonymousTupleTableGroupProducer;
+import org.hibernate.query.sqm.tuple.internal.AnonymousTupleTableGroupProducer;
 import org.hibernate.query.sqm.ComparisonOperator;
 import org.hibernate.query.common.FetchClauseType;
 import org.hibernate.query.common.FrameExclusion;
@@ -629,8 +629,7 @@ public class OracleSqlAstTranslator<T extends JdbcOperation> extends SqlAstTrans
 		if ( expression instanceof Literal ) {
 			appendSql( "()" );
 		}
-		else if ( expression instanceof Summarization ) {
-			Summarization summarization = (Summarization) expression;
+		else if ( expression instanceof Summarization summarization ) {
 			appendSql( summarization.getKind().sqlText() );
 			appendSql( OPEN_PARENTHESIS );
 			renderCommaSeparated( summarization.getGroupings() );

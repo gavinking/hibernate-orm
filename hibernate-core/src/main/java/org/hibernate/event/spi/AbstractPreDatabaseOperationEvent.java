@@ -8,7 +8,7 @@ import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.persister.entity.EntityPersister;
 
 /**
- * Represents an operation we are about to perform against the database.
+ * Represents an operation that is about to be executed by the database.
  *
  * @author Steve Ebersole
  */

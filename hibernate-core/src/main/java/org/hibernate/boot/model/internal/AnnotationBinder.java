@@ -4,10 +4,12 @@
  */
 package org.hibernate.boot.model.internal;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Inheritance;
+import jakarta.persistence.InheritanceType;
+import jakarta.persistence.MappedSuperclass;
+import jakarta.persistence.Table;
 import org.hibernate.AnnotationException;
 import org.hibernate.MappingException;
 import org.hibernate.annotations.CollectionTypeRegistration;
@@ -22,6 +24,7 @@ import org.hibernate.annotations.JavaTypeRegistration;
 import org.hibernate.annotations.JdbcTypeRegistration;
 import org.hibernate.annotations.TypeRegistration;
 import org.hibernate.boot.model.IdentifierGeneratorDefinition;
+import org.hibernate.boot.model.NamedEntityGraphDefinition;
 import org.hibernate.boot.model.convert.spi.RegisteredConversion;
 import org.hibernate.boot.models.HibernateAnnotations;
 import org.hibernate.boot.models.JpaAnnotations;
@@ -37,15 +40,13 @@ import org.hibernate.resource.beans.spi.ManagedBeanRegistry;
 import org.hibernate.type.descriptor.java.BasicJavaType;
 import org.hibernate.type.descriptor.jdbc.JdbcType;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.Inheritance;
-import jakarta.persistence.InheritanceType;
-import jakarta.persistence.MappedSuperclass;
-import jakarta.persistence.Table;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static org.hibernate.boot.model.internal.AnnotatedClassType.EMBEDDABLE;
 import static org.hibernate.boot.model.internal.AnnotatedClassType.ENTITY;
+import static org.hibernate.boot.model.internal.EntityBinder.bindEntityClass;
 import static org.hibernate.boot.model.internal.FilterDefBinder.bindFilterDefs;
 import static org.hibernate.boot.model.internal.GeneratorParameters.interpretSequenceGenerator;
 import static org.hibernate.boot.model.internal.GeneratorParameters.interpretTableGenerator;
@@ -72,14 +73,16 @@ public final class AnnotationBinder {
 	public static void bindDefaults(MetadataBuildingContext context) {
 		final GlobalRegistrations globalRegistrations = context.getMetadataCollector().getGlobalRegistrations();
 
-		// id generators ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		// id generators
 
 		globalRegistrations.getSequenceGeneratorRegistrations().forEach( (name, generatorRegistration) -> {
 			final IdentifierGeneratorDefinition.Builder definitionBuilder = new IdentifierGeneratorDefinition.Builder();
 			interpretSequenceGenerator( generatorRegistration.configuration(), definitionBuilder );
 			final IdentifierGeneratorDefinition idGenDef = definitionBuilder.build();
 			if ( LOG.isTraceEnabled() ) {
-				LOG.tracef( "Adding global sequence generator with name: %s", name );
+				LOG.trace( "Adding global sequence generator with name: " + name );
 			}
 			context.getMetadataCollector().addDefaultIdentifierGenerator( idGenDef );
 		} );
@@ -89,19 +92,22 @@ public final class AnnotationBinder {
 			interpretTableGenerator( generatorRegistration.configuration(), definitionBuilder );
 			final IdentifierGeneratorDefinition idGenDef = definitionBuilder.build();
 			if ( LOG.isTraceEnabled() ) {
-				LOG.tracef( "Adding global table generator with name: %s", name );
+				LOG.trace( "Adding global table generator with name: " + name );
 			}
 			context.getMetadataCollector().addDefaultIdentifierGenerator( idGenDef );
 		} );
 
-		// result-set-mappings ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		// result-set-mappings
 
 		globalRegistrations.getSqlResultSetMappingRegistrations().forEach( (name, mappingRegistration) -> {
 			QueryBinder.bindSqlResultSetMapping( mappingRegistration.configuration(), context, true );
 		} );
 
 
-		// queries ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		// queries
 
 		globalRegistrations.getNamedQueryRegistrations().forEach( (name, queryRegistration) -> {
 			QueryBinder.bindQuery( queryRegistration.configuration(), context, true, null );
@@ -114,6 +120,7 @@ public final class AnnotationBinder {
 		globalRegistrations.getNamedStoredProcedureQueryRegistrations().forEach( (name, queryRegistration) -> {
 			QueryBinder.bindNamedStoredProcedureQuery( queryRegistration.configuration(), context, true );
 		} );
+
 	}
 
 	private static SourceModelBuildingContext sourceContext(MetadataBuildingContext context) {
@@ -139,6 +146,19 @@ public final class AnnotationBinder {
 
 		bindQueries( packageInfoClassDetails, context );
 		bindFilterDefs( packageInfoClassDetails, context );
+
+		bindNamedEntityGraphs( packageInfoClassDetails, context );
+	}
+
+	private static void bindNamedEntityGraphs(ClassDetails packageInfoClassDetails, MetadataBuildingContext context) {
+		packageInfoClassDetails.forEachRepeatedAnnotationUsages(
+				HibernateAnnotations.NAMED_ENTITY_GRAPH,
+				context.getMetadataCollector().getSourceModelBuildingContext(),
+				(annotation) -> {
+					final NamedEntityGraphDefinition graphDefinition = new NamedEntityGraphDefinition( annotation );
+					context.getMetadataCollector().addNamedEntityGraph( graphDefinition );
+				}
+		);
 	}
 
 	public static void bindQueries(AnnotationTarget annotationTarget, MetadataBuildingContext context) {
@@ -217,7 +237,7 @@ public final class AnnotationBinder {
 		// try to find class level generators
 //		GeneratorBinder.registerGlobalGenerators( classDetails, context );
 		if ( context.getMetadataCollector().getClassType( classDetails ) == ENTITY ) {
-			EntityBinder.bindEntityClass( classDetails, inheritanceStatePerClass, context );
+			bindEntityClass( classDetails, inheritanceStatePerClass, context );
 		}
 	}
 
@@ -252,8 +272,7 @@ public final class AnnotationBinder {
 			AnnotationTarget annotatedElement,
 			MetadataBuildingContext context) {
 		final ManagedBeanRegistry managedBeanRegistry =
-				context.getBootstrapContext().getServiceRegistry()
-						.getService( ManagedBeanRegistry.class );
+				context.getBootstrapContext().getManagedBeanRegistry();
 
 		final SourceModelBuildingContext sourceModelContext = sourceContext( context );
 

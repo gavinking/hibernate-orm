@@ -1090,7 +1090,7 @@ abstract public class DialectFeatureChecks {
 		return sqmFunctionRegistry;
 	}
 
-	private static class FakeTypeContributions implements TypeContributions {
+	public static class FakeTypeContributions implements TypeContributions {
 		private final TypeConfiguration typeConfiguration;
 
 		public FakeTypeContributions(TypeConfiguration typeConfiguration) {
@@ -1103,7 +1103,7 @@ abstract public class DialectFeatureChecks {
 		}
 	}
 
-	private static class FakeFunctionContributions implements FunctionContributions {
+	public static class FakeFunctionContributions implements FunctionContributions {
 		private final Dialect dialect;
 		private final TypeConfiguration typeConfiguration;
 		private final SqmFunctionRegistry functionRegistry;
@@ -1492,14 +1492,6 @@ abstract public class DialectFeatureChecks {
 		}
 
 		@Override
-		public void addPropertyAnnotatedWithMapsIdSpecj(
-				ClassDetails entityClassDetails,
-				PropertyData specJPropertyData,
-				String s) {
-
-		}
-
-		@Override
 		public void addToOneAndIdProperty(ClassDetails entityClassDetails, PropertyData propertyAnnotatedElement) {
 
 		}
@@ -1606,7 +1598,7 @@ abstract public class DialectFeatureChecks {
 		}
 
 		@Override
-		public void addPropertyReferencedAssociation(String s, String propertyName, String syntheticPropertyName) {
+		public void addPropertyReferencedAssociation(String entityName, String propertyName, String syntheticPropertyName) {
 
 		}
 

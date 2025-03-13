@@ -10,7 +10,7 @@ import java.util.function.Supplier;
 import org.hibernate.metamodel.mapping.BasicValuedMapping;
 import org.hibernate.metamodel.mapping.MappingModelExpressible;
 import org.hibernate.metamodel.model.domain.DomainType;
-import org.hibernate.query.ReturnableType;
+import org.hibernate.metamodel.model.domain.ReturnableType;
 import org.hibernate.query.sqm.SqmExpressible;
 import org.hibernate.query.sqm.produce.function.FunctionReturnTypeResolver;
 import org.hibernate.query.sqm.sql.SqmToSqlAstConverter;
@@ -48,8 +48,8 @@ public class ArrayViaArgumentReturnTypeResolver implements FunctionReturnTypeRes
 			if ( inferredType instanceof ReturnableType<?> ) {
 				return (ReturnableType<?>) inferredType;
 			}
-			else if ( inferredType instanceof BasicValuedMapping ) {
-				return (ReturnableType<?>) ( (BasicValuedMapping) inferredType ).getJdbcMapping();
+			else if ( inferredType instanceof BasicValuedMapping basicValuedMapping ) {
+				return (ReturnableType<?>) basicValuedMapping.getJdbcMapping();
 			}
 		}
 		if ( impliedType != null ) {

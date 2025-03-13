@@ -53,6 +53,8 @@ import org.hibernate.internal.util.JdbcExceptionHelper;
 import org.hibernate.mapping.AggregateColumn;
 import org.hibernate.mapping.Table;
 import org.hibernate.metamodel.mapping.EntityMappingType;
+import org.hibernate.metamodel.mapping.SqlExpressible;
+import org.hibernate.metamodel.mapping.SqlTypedMapping;
 import org.hibernate.metamodel.spi.RuntimeModelCreationContext;
 import org.hibernate.persister.entity.mutation.EntityMutationTarget;
 import org.hibernate.procedure.internal.PostgreSQLCallableStatementSupport;
@@ -141,7 +143,7 @@ import static org.hibernate.type.descriptor.DateTimeUtils.appendAsTimestampWithM
 import static org.hibernate.type.descriptor.DateTimeUtils.appendAsTimestampWithMillis;
 
 /**
- * A {@linkplain Dialect SQL dialect} for PostgreSQL 12 and above.
+ * A {@linkplain Dialect SQL dialect} for PostgreSQL 13 and above.
  * <p>
  * Please refer to the
  * <a href="https://www.postgresql.org/docs/current/index.html">PostgreSQL documentation</a>.
@@ -149,7 +151,7 @@ import static org.hibernate.type.descriptor.DateTimeUtils.appendAsTimestampWithM
  * @author Gavin King
  */
 public class PostgreSQLDialect extends Dialect {
-	protected final static DatabaseVersion MINIMUM_VERSION = DatabaseVersion.make( 12 );
+	protected final static DatabaseVersion MINIMUM_VERSION = DatabaseVersion.make( 13 );
 
 	private final UniqueDelegate uniqueDelegate = new CreateTableUniqueDelegate(this);
 	private final StandardTableExporter postgresqlTableExporter = new StandardTableExporter( this ) {
@@ -246,7 +248,8 @@ public class PostgreSQLDialect extends Dialect {
 	@Override
 	protected String castType(int sqlTypeCode) {
 		return switch (sqlTypeCode) {
-			case CHAR, NCHAR, VARCHAR, NVARCHAR, LONG32VARCHAR, LONG32NVARCHAR -> "text";
+			case CHAR, NCHAR, VARCHAR, NVARCHAR -> "varchar";
+			case LONG32VARCHAR, LONG32NVARCHAR -> "text";
 			case BINARY, VARBINARY, LONG32VARBINARY -> "bytea";
 			default -> super.castType( sqlTypeCode );
 		};
@@ -611,7 +614,7 @@ public class PostgreSQLDialect extends Dialect {
 		functionFactory.arrayToString_postgresql();
 
 		if ( getVersion().isSameOrAfter( 17 ) ) {
-			functionFactory.jsonValue();
+			functionFactory.jsonValue_postgresql( true );
 			functionFactory.jsonQuery();
 			functionFactory.jsonExists();
 			functionFactory.jsonObject();
@@ -621,7 +624,7 @@ public class PostgreSQLDialect extends Dialect {
 			functionFactory.jsonTable();
 		}
 		else {
-			functionFactory.jsonValue_postgresql();
+			functionFactory.jsonValue_postgresql( false );
 			functionFactory.jsonQuery_postgresql();
 			functionFactory.jsonExists_postgresql();
 			if ( getVersion().isSameOrAfter( 16 ) ) {
@@ -642,11 +645,9 @@ public class PostgreSQLDialect extends Dialect {
 		functionFactory.jsonRemove_postgresql();
 		functionFactory.jsonReplace_postgresql();
 		functionFactory.jsonInsert_postgresql();
-		if ( getVersion().isSameOrAfter( 13 ) ) {
-			// Requires support for WITH clause in subquery which only 13+ provides
-			functionFactory.jsonMergepatch_postgresql();
-		}
-		functionFactory.jsonArrayAppend_postgresql( getVersion().isSameOrAfter( 13 ) );
+		// Requires support for WITH clause in subquery which only 13+ provides
+		functionFactory.jsonMergepatch_postgresql();
+		functionFactory.jsonArrayAppend_postgresql( true );
 		functionFactory.jsonArrayInsert_postgresql();
 
 		functionFactory.xmlelement();
@@ -685,12 +686,7 @@ public class PostgreSQLDialect extends Dialect {
 		functionContributions.getFunctionRegistry().registerAlternateKey( "truncate", "trunc" );
 		functionFactory.dateTrunc();
 
-		if ( getVersion().isSameOrAfter( 17 ) ) {
-			functionFactory.unnest( null, "ordinality" );
-		}
-		else {
-			functionFactory.unnest_postgresql();
-		}
+		functionFactory.unnest_postgresql( getVersion().isSameOrAfter( 17 ) );
 		functionFactory.generateSeries( null, "ordinality", false );
 
 		functionFactory.hex( "encode(?1, 'hex')" );
@@ -917,6 +913,17 @@ public class PostgreSQLDialect extends Dialect {
 		// TODO: adapt this to handle named enum types!
 		// Workaround for postgres bug #1453
 		return "cast(null as " + typeConfiguration.getDdlTypeRegistry().getDescriptor( sqlType ).getRawTypeName() + ")";
+	}
+
+	@Override
+	public String getSelectClauseNullString(SqlTypedMapping sqlType, TypeConfiguration typeConfiguration) {
+		final DdlTypeRegistry ddlTypeRegistry = typeConfiguration.getDdlTypeRegistry();
+		final String castTypeName = ddlTypeRegistry
+				.getDescriptor( sqlType.getJdbcMapping().getJdbcType().getDdlTypeCode() )
+				.getCastTypeName( sqlType.toSize(), (SqlExpressible) sqlType.getJdbcMapping(), ddlTypeRegistry );
+		// PostgreSQL assumes a plain null literal in the select statement to be of type text,
+		// which can lead to issues in e.g. the union subclass strategy, so do a cast
+		return "cast(null as " + castTypeName + ")";
 	}
 
 	@Override
@@ -1395,7 +1402,7 @@ public class PostgreSQLDialect extends Dialect {
 		return switch (type) {
 			case ROWS_ONLY -> true;
 			case PERCENT_ONLY, PERCENT_WITH_TIES -> false;
-			case ROWS_WITH_TIES -> getVersion().isSameOrAfter(13);
+			case ROWS_WITH_TIES -> true;
 		};
 	}
 

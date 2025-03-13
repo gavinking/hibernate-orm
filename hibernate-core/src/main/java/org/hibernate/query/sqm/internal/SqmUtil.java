@@ -34,6 +34,7 @@ import org.hibernate.metamodel.mapping.MappingModelExpressible;
 import org.hibernate.metamodel.mapping.ModelPart;
 import org.hibernate.metamodel.mapping.ModelPartContainer;
 import org.hibernate.metamodel.mapping.PluralAttributeMapping;
+import org.hibernate.metamodel.mapping.internal.ToOneAttributeMapping;
 import org.hibernate.metamodel.model.domain.BasicDomainType;
 import org.hibernate.metamodel.model.domain.EntityDomainType;
 import org.hibernate.metamodel.model.domain.IdentifiableDomainType;
@@ -257,7 +258,13 @@ public class SqmUtil {
 	 * or one that has an explicit on clause predicate.
 	 */
 	public static boolean isFkOptimizationAllowed(SqmPath<?> sqmPath, EntityAssociationMapping associationMapping) {
-		if ( associationMapping.isFkOptimizationAllowed() && sqmPath instanceof SqmJoin<?, ?> sqmJoin ) {
+		// By default, never allow the FK optimization if the path is a join, unless the association has a join table
+		// Hibernate ORM has no way for users to refer to collection/join table rows,
+		// so referring the columns of these rows by default when requesting FK column attributes is sensible.
+		// Users that need to refer to the actual target table columns will have to add an explicit entity join.
+		if ( associationMapping.isFkOptimizationAllowed()
+			&& sqmPath instanceof SqmJoin<?, ?> sqmJoin
+			&& hasJoinTable( associationMapping ) ) {
 			switch ( sqmJoin.getSqmJoinType() ) {
 				case LEFT:
 					if ( isFiltered( associationMapping ) ) {
@@ -269,6 +276,16 @@ public class SqmUtil {
 				default:
 					return false;
 			}
+		}
+		return false;
+	}
+
+	private static boolean hasJoinTable(EntityAssociationMapping associationMapping) {
+		if ( associationMapping instanceof CollectionPart collectionPart ) {
+			return !collectionPart.getCollectionAttribute().getCollectionDescriptor().isOneToMany();
+		}
+		else if ( associationMapping instanceof ToOneAttributeMapping toOneAttributeMapping ) {
+			return toOneAttributeMapping.hasJoinTable();
 		}
 		return false;
 	}
@@ -373,7 +390,7 @@ public class SqmUtil {
 			SqmPathSource<A> pathSource,
 			SqmJoinType requestedJoinType) {
 		for ( final SqmJoin<T, ?> join : sqmFrom.getSqmJoins() ) {
-			if ( join.getReferencedPathSource() == pathSource ) {
+			if ( join.getModel() == pathSource ) {
 				final SqmAttributeJoin<T, ?> attributeJoin = (SqmAttributeJoin<T, ?>) join;
 				if ( attributeJoin.isFetched() ) {
 					final SqmJoinType joinType = join.getSqmJoinType();
@@ -638,7 +655,7 @@ public class SqmUtil {
 		if ( parameterType instanceof EntityIdentifierMapping identifierMapping ) {
 			final EntityMappingType entityMapping = identifierMapping.findContainingEntityMapping();
 			if ( entityMapping.getRepresentationStrategy().getInstantiator()
-					.isInstance( bindValue, session.getFactory() ) ) {
+					.isInstance( bindValue ) ) {
 				bindValue = identifierMapping.getIdentifierIfNotUnsaved( bindValue, session );
 			}
 		}
@@ -647,7 +664,7 @@ public class SqmUtil {
 			final EntityMappingType entityMapping = identifierMapping.findContainingEntityMapping();
 			parameterType = identifierMapping;
 			if ( entityMapping.getRepresentationStrategy().getInstantiator()
-					.isInstance( bindValue, session.getFactory() ) ) {
+					.isInstance( bindValue ) ) {
 				bindValue = identifierMapping.getIdentifierIfNotUnsaved( bindValue, session );
 			}
 		}
@@ -763,7 +780,7 @@ public class SqmUtil {
 
 	static JpaOrder sortSpecification(SqmSelectStatement<?> sqm, Order<?> order) {
 		final List<SqmSelectableNode<?>> items = sqm.getQuerySpec().getSelectClause().getSelectionItems();
-		int element = order.getElement();
+		final int element = order.getElement();
 		if ( element < 1) {
 			throw new IllegalQueryOperationException("Cannot order by element " + element
 					+ " (the first select item is element 1)");

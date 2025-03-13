@@ -7,14 +7,14 @@
 import org.apache.tools.ant.filters.ReplaceTokens
 
 plugins {
+    id "local.publishing-java-module"
+    id "local.publishing-group-relocation"
+
+    id "org.hibernate.orm.antlr"
     id "local-xjc-plugin"
 }
 
 description = 'Hibernate\'s core ORM functionality'
-
-apply from: rootProject.file( 'gradle/relocated-published-java-module.gradle' )
-apply plugin: 'org.hibernate.orm.antlr'
-apply plugin: 'org.hibernate.matrix-test'
 
 configurations {
     tests {
@@ -56,7 +56,6 @@ dependencies {
     testImplementation jakartaLibs.cdi
     testImplementation jakartaLibs.jacc
     testImplementation jakartaLibs.validation
-    testImplementation testLibs.expressly
     testImplementation( testLibs.validator ) {
         // for test runtime
         transitive = true

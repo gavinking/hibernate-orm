@@ -190,7 +190,7 @@ public interface NativeQueryImplementor<R> extends QueryImplementor<R>, NativeQu
 	NativeQueryImplementor<R> setComment(String comment);
 
 	@Override
-	NativeQueryImplementor<R> setMaxResults(int maxResult);
+	NativeQueryImplementor<R> setMaxResults(int maxResults);
 
 	@Override
 	NativeQueryImplementor<R> setFirstResult(int startPosition);
@@ -319,5 +319,6 @@ public interface NativeQueryImplementor<R> extends QueryImplementor<R>, NativeQu
 	@Override
 	NativeQueryImplementor<R> setProperties(@SuppressWarnings("rawtypes") Map bean);
 
+	@SuppressWarnings("unused") // Used by Hibernate Reactive
 	void addResultTypeClass(Class<?> resultClass);
 }

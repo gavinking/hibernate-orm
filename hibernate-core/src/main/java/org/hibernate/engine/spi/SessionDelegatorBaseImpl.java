@@ -34,7 +34,7 @@ import org.hibernate.engine.jdbc.LobCreator;
 import org.hibernate.engine.jdbc.connections.spi.JdbcConnectionAccess;
 import org.hibernate.engine.jdbc.spi.JdbcCoordinator;
 import org.hibernate.engine.jdbc.spi.JdbcServices;
-import org.hibernate.event.spi.EventManager;
+import org.hibernate.event.monitor.spi.EventMonitor;
 import org.hibernate.event.spi.EventSource;
 import org.hibernate.graph.RootGraph;
 import org.hibernate.graph.spi.RootGraphImplementor;
@@ -46,7 +46,6 @@ import org.hibernate.query.MutationQuery;
 import org.hibernate.query.SelectionQuery;
 import org.hibernate.query.criteria.HibernateCriteriaBuilder;
 import org.hibernate.query.criteria.JpaCriteriaInsert;
-import org.hibernate.query.criteria.JpaCriteriaInsertSelect;
 import org.hibernate.query.spi.QueryImplementor;
 import org.hibernate.query.spi.QueryProducerImplementor;
 import org.hibernate.query.sql.spi.NativeQueryImplementor;
@@ -70,6 +69,7 @@ import jakarta.persistence.criteria.CriteriaSelect;
 import jakarta.persistence.criteria.CriteriaUpdate;
 import jakarta.persistence.metamodel.Metamodel;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.hibernate.type.format.FormatMapper;
 
 /**
  * A wrapper class that delegates all method invocations to a delegate instance of
@@ -222,8 +222,8 @@ public class SessionDelegatorBaseImpl implements SessionImplementor {
 	}
 
 	@Override
-	public void setCacheMode(CacheMode cm) {
-		delegate.setCacheMode( cm );
+	public void setCacheMode(CacheMode cacheMode) {
+		delegate.setCacheMode( cacheMode );
 	}
 
 	@Override
@@ -529,15 +529,9 @@ public class SessionDelegatorBaseImpl implements SessionImplementor {
 	}
 
 	@Override
-	public MutationQuery createMutationQuery(@SuppressWarnings("rawtypes") JpaCriteriaInsertSelect insertSelect) {
+	public MutationQuery createMutationQuery(@SuppressWarnings("rawtypes") JpaCriteriaInsert insert) {
 		//noinspection resource
-		return delegate().createMutationQuery( insertSelect );
-	}
-
-	@Override
-	public MutationQuery createMutationQuery(@SuppressWarnings("rawtypes") JpaCriteriaInsert insertSelect) {
-		//noinspection resource
-		return delegate().createMutationQuery( insertSelect );
+		return delegate().createMutationQuery( insert );
 	}
 
 	@Override
@@ -545,13 +539,13 @@ public class SessionDelegatorBaseImpl implements SessionImplementor {
 		return queryDelegate().createQuery( criteriaQuery );
 	}
 
-	@Override @SuppressWarnings("rawtypes")
-	public QueryImplementor createQuery(CriteriaUpdate updateQuery) {
+	@Override
+	public @SuppressWarnings("rawtypes") QueryImplementor createQuery(CriteriaUpdate updateQuery) {
 		return queryDelegate().createQuery( updateQuery );
 	}
 
-	@Override @SuppressWarnings("rawtypes")
-	public QueryImplementor createQuery(CriteriaDelete deleteQuery) {
+	@Override
+	public @SuppressWarnings("rawtypes") QueryImplementor createQuery(CriteriaDelete deleteQuery) {
 		return queryDelegate().createQuery( deleteQuery );
 	}
 
@@ -560,18 +554,18 @@ public class SessionDelegatorBaseImpl implements SessionImplementor {
 		return queryDelegate().createQuery( typedQueryReference );
 	}
 
-	@Override @SuppressWarnings("rawtypes")
-	public QueryImplementor getNamedQuery(String name) {
+	@Override
+	public @SuppressWarnings("rawtypes") QueryImplementor getNamedQuery(String name) {
 		return queryDelegate().getNamedQuery( name );
 	}
 
-	@Override @SuppressWarnings("rawtypes")
-	public NativeQueryImplementor getNamedNativeQuery(String name) {
+	@Override
+	public @SuppressWarnings("rawtypes") NativeQueryImplementor getNamedNativeQuery(String name) {
 		return queryDelegate().getNamedNativeQuery( name );
 	}
 
-	@Override @SuppressWarnings("rawtypes")
-	public NativeQueryImplementor getNamedNativeQuery(String name, String resultSetMapping) {
+	@Override
+	public @SuppressWarnings("rawtypes") NativeQueryImplementor getNamedNativeQuery(String name, String resultSetMapping) {
 		return queryDelegate().getNamedNativeQuery( name, resultSetMapping );
 	}
 
@@ -600,8 +594,8 @@ public class SessionDelegatorBaseImpl implements SessionImplementor {
 		return queryDelegate().createQuery( queryString, resultType );
 	}
 
-	@Override @SuppressWarnings("rawtypes")
-	public QueryImplementor createNamedQuery(String name) {
+	@Override
+	public @SuppressWarnings("rawtypes") QueryImplementor createNamedQuery(String name) {
 		return queryDelegate().createNamedQuery( name );
 	}
 
@@ -622,8 +616,8 @@ public class SessionDelegatorBaseImpl implements SessionImplementor {
 		return delegate().createNamedSelectionQuery( name, resultType );
 	}
 
-	@Override @SuppressWarnings("rawtypes")
-	public NativeQueryImplementor createNativeQuery(String sqlString) {
+	@Override
+	public @SuppressWarnings("rawtypes") NativeQueryImplementor createNativeQuery(String sqlString) {
 		return queryDelegate().createNativeQuery( sqlString );
 	}
 
@@ -639,8 +633,8 @@ public class SessionDelegatorBaseImpl implements SessionImplementor {
 		return queryDelegate().createNativeQuery( sqlString, resultClass, tableAlias );
 	}
 
-	@Override @SuppressWarnings("rawtypes")
-	public NativeQueryImplementor createNativeQuery(String sqlString, String resultSetMappingName) {
+	@Override
+	public @SuppressWarnings("rawtypes") NativeQueryImplementor createNativeQuery(String sqlString, String resultSetMappingName) {
 		return queryDelegate().createNativeQuery( sqlString, resultSetMappingName );
 	}
 
@@ -1167,8 +1161,8 @@ public class SessionDelegatorBaseImpl implements SessionImplementor {
 	}
 
 	@Override
-	public EventManager getEventManager() {
-		return delegate.getEventManager();
+	public EventMonitor getEventMonitor() {
+		return delegate.getEventMonitor();
 	}
 
 	@Override
@@ -1199,5 +1193,15 @@ public class SessionDelegatorBaseImpl implements SessionImplementor {
 	@Override
 	public TimeZone getJdbcTimeZone() {
 		return delegate.getJdbcTimeZone();
+	}
+
+	@Override
+	public FormatMapper getJsonFormatMapper() {
+		return delegate.getJsonFormatMapper();
+	}
+
+	@Override
+	public FormatMapper getXmlFormatMapper() {
+		return delegate.getXmlFormatMapper();
 	}
 }

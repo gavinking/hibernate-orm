@@ -18,8 +18,8 @@ import org.hibernate.engine.jdbc.spi.SqlStatementLogger;
 import org.hibernate.engine.spi.SessionEventListenerManager;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
-import org.hibernate.event.spi.EventManager;
-import org.hibernate.event.spi.HibernateMonitoringEvent;
+import org.hibernate.event.monitor.spi.EventMonitor;
+import org.hibernate.event.monitor.spi.DiagnosticEvent;
 import org.hibernate.internal.CoreLogging;
 import org.hibernate.internal.CoreMessageLogger;
 import org.hibernate.query.spi.Limit;
@@ -112,13 +112,7 @@ public class DeferredResultSetAccess extends AbstractResultSetAccess {
 						lockOptionsToUse.setTimeOut( lockOptions.getTimeOut() );
 						lockOptionsToUse.setLockScope( lockOptions.getLockScope() );
 
-						executionContext.getCallback().registerAfterLoadAction( (entity, persister, session) ->
-								session.asSessionImplementor().lock(
-										persister.getEntityName(),
-										entity,
-										lockOptionsToUse
-								)
-						);
+						registerAfterLoadAction( executionContext, lockOptionsToUse );
 					}
 				}
 				else {
@@ -136,22 +130,32 @@ public class DeferredResultSetAccess extends AbstractResultSetAccess {
 		}
 	}
 
+	/**
+	 * For Hibernate Reactive
+	 */
+	protected void registerAfterLoadAction(ExecutionContext executionContext, LockOptions lockOptionsToUse) {
+		executionContext.getCallback().registerAfterLoadAction( (entity, persister, session) ->
+				session.asSessionImplementor().lock(
+						persister.getEntityName(),
+						entity,
+						lockOptionsToUse
+				)
+		);
+	}
+
 	private static boolean useFollowOnLocking(
 			JdbcLockStrategy jdbcLockStrategy,
 			String sql,
 			QueryOptions queryOptions,
 			LockOptions lockOptions,
 			Dialect dialect) {
-		switch ( jdbcLockStrategy ) {
-			case FOLLOW_ON:
-				return true;
-			case AUTO:
-				return lockOptions.getFollowOnLocking() == null
+		return switch ( jdbcLockStrategy ) {
+			case FOLLOW_ON -> true;
+			case AUTO -> lockOptions.getFollowOnLocking() == null
 					? dialect.useFollowOnLocking( sql, queryOptions )
 					: lockOptions.getFollowOnLocking();
-			default:
-				return false;
-		}
+			default -> false;
+		};
 	}
 
 	public LimitHandler getLimitHandler() {
@@ -223,7 +227,8 @@ public class DeferredResultSetAccess extends AbstractResultSetAccess {
 	}
 
 	private void executeQuery() {
-		final LogicalConnectionImplementor logicalConnection = getPersistenceContext().getJdbcCoordinator().getLogicalConnection();
+		final LogicalConnectionImplementor logicalConnection =
+				getPersistenceContext().getJdbcCoordinator().getLogicalConnection();
 
 		final SharedSessionContractImplementor session = executionContext.getSession();
 		try {
@@ -240,14 +245,15 @@ public class DeferredResultSetAccess extends AbstractResultSetAccess {
 			if ( sqlStatementLogger.getLogSlowQuery() > 0 ) {
 				executeStartNanos = System.nanoTime();
 			}
-			final EventManager eventManager = session.getEventManager();
-			final HibernateMonitoringEvent jdbcPreparedStatementExecutionEvent = eventManager.beginJdbcPreparedStatementExecutionEvent();
+			final EventMonitor eventMonitor = session.getEventMonitor();
+			final DiagnosticEvent jdbcPreparedStatementExecutionEvent =
+					eventMonitor.beginJdbcPreparedStatementExecutionEvent();
 			try {
 				eventListenerManager.jdbcExecuteStatementStart();
 				resultSet = wrapResultSet( preparedStatement.executeQuery() );
 			}
 			finally {
-				eventManager.completeJdbcPreparedStatementExecutionEvent( jdbcPreparedStatementExecutionEvent, finalSql );
+				eventMonitor.completeJdbcPreparedStatementExecutionEvent( jdbcPreparedStatementExecutionEvent, finalSql );
 				eventListenerManager.jdbcExecuteStatementEnd();
 				sqlStatementLogger.logSlowQuery( finalSql, executeStartNanos, context() );
 			}

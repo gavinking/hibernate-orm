@@ -4,7 +4,6 @@
  */
 package org.hibernate.query.spi;
 
-import java.io.Serializable;
 import java.time.Instant;
 import java.util.Calendar;
 import java.util.Collection;
@@ -42,6 +41,7 @@ import org.hibernate.query.KeyedResultList;
 import org.hibernate.query.Order;
 import org.hibernate.query.Query;
 import org.hibernate.query.QueryParameter;
+import org.hibernate.query.restriction.Restriction;
 import org.hibernate.query.ResultListTransformer;
 import org.hibernate.query.TupleTransformer;
 import org.hibernate.query.named.NamedQueryMemento;
@@ -157,8 +157,8 @@ public abstract class AbstractQuery<R>
 	}
 
 	@Override
-	public QueryImplementor<R> setMaxResults(int maxResult) {
-		super.setMaxResults( maxResult );
+	public QueryImplementor<R> setMaxResults(int maxResults) {
+		super.setMaxResults( maxResults );
 		return this;
 	}
 
@@ -173,10 +173,10 @@ public abstract class AbstractQuery<R>
 		return this;
 	}
 
-	@Override @SuppressWarnings("unchecked")
+	@Override
 	public <T> QueryImplementor<T> setTupleTransformer(TupleTransformer<T> transformer) {
 		getQueryOptions().setTupleTransformer( transformer );
-		// this is bad, we should really return a new instance:
+		//TODO: this is bad, we should really return a new instance
 		return (QueryImplementor<T>) this;
 	}
 
@@ -301,6 +301,11 @@ public abstract class AbstractQuery<R>
 
 	@Override
 	public Query<R> setOrder(Order<? super R> order) {
+		throw new UnsupportedOperationException( "Should be implemented by " + this.getClass().getName() );
+	}
+
+	@Override
+	public Query<R> addRestriction(Restriction<? super R> restriction) {
 		throw new UnsupportedOperationException( "Should be implemented by " + this.getClass().getName() );
 	}
 
@@ -664,18 +669,4 @@ public abstract class AbstractQuery<R>
 		throw new UnsupportedOperationException("Getting keyed result list is not supported by this query.");
 	}
 
-	@Override
-	public void setOptionalId(Serializable id) {
-		throw new UnsupportedOperationException( "Not sure yet how to handle this in SQM based queries, but for sure it will be different" );
-	}
-
-	@Override
-	public void setOptionalEntityName(String entityName) {
-		throw new UnsupportedOperationException( "Not sure yet how to handle this in SQM based queries, but for sure it will be different" );
-	}
-
-	@Override
-	public void setOptionalObject(Object optionalObject) {
-		throw new UnsupportedOperationException( "Not sure yet how to handle this in SQM based queries, but for sure it will be different" );
-	}
 }

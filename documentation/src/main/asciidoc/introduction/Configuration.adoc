@@ -69,7 +69,7 @@ driver for your database.
 | MariaDB                   | `org.mariadb.jdbc:mariadb-java-client:{version}`
 | DB2                       | `com.ibm.db2:jcc:{version}`
 | SQL Server                | `com.microsoft.sqlserver:mssql-jdbc:{version}`
-| Oracle                    | `com.oracle.database.jdbc:ojdbc11:{version}`
+| Oracle                    | `com.oracle.database.jdbc:ojdbc17:{version}`
 | H2                        | `com.h2database:h2:{version}`
 | HSQLDB                    | `org.hsqldb:hsqldb:{version}`
 |===
@@ -121,6 +121,7 @@ and `com.github.ben-manes.caffeine:jcache`
 or `org.eclipse:yasson`
 | <<spatial,Hibernate Spatial>> | `org.hibernate.orm:hibernate-spatial`
 | <<envers,Envers>>, for auditing historical data | `org.hibernate.orm:hibernate-envers`
+| <<jfr,Hibernate JFR>>, for monitoring via Java Flight Recorder | `org.hibernate.orm:hibernate-jfr`
 |===
 
 You might also add the Hibernate {enhancer}[bytecode enhancer] to your
@@ -354,8 +355,10 @@ You can set the size of Hibernate's built-in connection pool using this property
 |===
 | Configuration property name | Purpose
 
-| `hibernate.connection.pool_size` | The size of the built-in connection pool
+| `hibernate.connection.pool_size` | The size of the connection pool
 |===
+
+This configuration property is also respected when you use Agroal, HikariCP, or c3p0 for connection pooling.
 
 [CAUTION]
 // .The default connection pool is not meant for production use
@@ -432,7 +435,7 @@ As we mentioned <<testing,earlier>>, it can also be useful to control schema exp
 The link:{doc-javadoc-url}org/hibernate/relational/SchemaManager.html[`SchemaManager`] API allows programmatic control over schema export:
 
 [source,java]
-sessionFactory.getSchemaManager().export(true);
+sessionFactory.getSchemaManager().create(true);
 ====
 
 [[logging-generated-sql]]

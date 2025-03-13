@@ -189,7 +189,7 @@ public abstract class AbstractPostgreSQLStructJdbcType implements StructJdbcType
 		if ( returnEmbeddable ) {
 			final StructAttributeValues attributeValues = getAttributeValues( embeddableMappingType, orderMapping, array, options );
 			//noinspection unchecked
-			return (X) instantiate( embeddableMappingType, attributeValues, options.getSessionFactory() );
+			return (X) instantiate( embeddableMappingType, attributeValues );
 		}
 		else if ( inverseOrderMapping != null ) {
 			StructHelper.orderJdbcValues( embeddableMappingType, inverseOrderMapping, array.clone(), array );
@@ -468,8 +468,7 @@ public abstract class AbstractPostgreSQLStructJdbcType implements StructJdbcType
 											subValues,
 											options
 									);
-									final Object subValue = instantiate( structJdbcType.embeddableMappingType, attributeValues, options.getSessionFactory() );
-									values[column] = subValue;
+									values[column] = instantiate( structJdbcType.embeddableMappingType, attributeValues );
 								}
 								else {
 									if ( structJdbcType.inverseOrderMapping != null ) {
@@ -502,8 +501,7 @@ public abstract class AbstractPostgreSQLStructJdbcType implements StructJdbcType
 						else if ( string.charAt( i + 1 ) == '{' ) {
 							// This could be a quoted array
 							final JdbcMapping jdbcMapping = getJdbcValueSelectable( column ).getJdbcMapping();
-							if ( jdbcMapping instanceof BasicPluralType<?, ?> ) {
-								final BasicPluralType<?, ?> pluralType = (BasicPluralType<?, ?>) jdbcMapping;
+							if ( jdbcMapping instanceof BasicPluralType<?, ?> pluralType ) {
 								final ArrayList<Object> arrayList = new ArrayList<>();
 								//noinspection unchecked
 								final int subEnd = deserializeArray(
@@ -849,9 +847,7 @@ public abstract class AbstractPostgreSQLStructJdbcType implements StructJdbcType
 						i += expectedQuotes - 1;
 						if ( string.charAt( i + 1 ) == '(' ) {
 							// This could be a nested struct
-							if ( elementType.getJdbcType() instanceof AbstractPostgreSQLStructJdbcType ) {
-								final AbstractPostgreSQLStructJdbcType structJdbcType;
-								structJdbcType = (AbstractPostgreSQLStructJdbcType) elementType.getJdbcType();
+							if ( elementType.getJdbcType() instanceof AbstractPostgreSQLStructJdbcType structJdbcType ) {
 								final Object[] subValues = new Object[structJdbcType.embeddableMappingType.getJdbcValueCount()];
 								final int subEnd = structJdbcType.deserializeStruct(
 										string,
@@ -868,8 +864,7 @@ public abstract class AbstractPostgreSQLStructJdbcType implements StructJdbcType
 											subValues,
 											options
 									);
-									final Object subValue = instantiate( structJdbcType.embeddableMappingType, attributeValues, options.getSessionFactory() );
-									values.add( subValue );
+									values.add( instantiate( structJdbcType.embeddableMappingType, attributeValues ) );
 								}
 								else {
 									if ( structJdbcType.inverseOrderMapping != null ) {
@@ -1006,8 +1001,7 @@ public abstract class AbstractPostgreSQLStructJdbcType implements StructJdbcType
 			for ( int i = 0; i < size; i++ ) {
 				final ValuedModelPart modelPart = getEmbeddedPart( embeddableMappingType, orderMapping[i] );
 				final MappingType mappedType = modelPart.getMappedType();
-				if ( mappedType instanceof EmbeddableMappingType ) {
-					final EmbeddableMappingType embeddableMappingType = (EmbeddableMappingType) mappedType;
+				if ( mappedType instanceof EmbeddableMappingType embeddableMappingType ) {
 					final SelectableMapping aggregateMapping = embeddableMappingType.getAggregateMapping();
 					if ( aggregateMapping == null ) {
 						final SelectableMapping subSelectable = embeddableMappingType.getJdbcValueSelectable( jdbcValueSelectableIndex - count );
@@ -1406,8 +1400,7 @@ public abstract class AbstractPostgreSQLStructJdbcType implements StructJdbcType
 		final MappingType mappedType = modelPart.getMappedType();
 		final int jdbcValueCount;
 		final Object rawJdbcValue = rawJdbcValues[jdbcIndex];
-		if ( mappedType instanceof EmbeddableMappingType ) {
-			final EmbeddableMappingType embeddableMappingType = (EmbeddableMappingType) mappedType;
+		if ( mappedType instanceof EmbeddableMappingType embeddableMappingType ) {
 			if ( embeddableMappingType.getAggregateMapping() != null ) {
 				jdbcValueCount = 1;
 				attributeValues.setAttributeValue( attributeIndex, rawJdbcValue );
@@ -1422,10 +1415,7 @@ public abstract class AbstractPostgreSQLStructJdbcType implements StructJdbcType
 						subJdbcValues,
 						options
 				);
-				attributeValues.setAttributeValue(
-						attributeIndex,
-						instantiate( embeddableMappingType, subValues, options.getSessionFactory() )
-				);
+				attributeValues.setAttributeValue( attributeIndex, instantiate( embeddableMappingType, subValues ) );
 			}
 		}
 		else {
@@ -1473,8 +1463,7 @@ public abstract class AbstractPostgreSQLStructJdbcType implements StructJdbcType
 				else if ( value instanceof java.util.Calendar ) {
 					appendAsTime( appender, (java.util.Calendar) value, jdbcTimeZone );
 				}
-				else if ( value instanceof TemporalAccessor ) {
-					final TemporalAccessor temporalAccessor = (TemporalAccessor) value;
+				else if ( value instanceof TemporalAccessor temporalAccessor ) {
 					if ( temporalAccessor.isSupported( ChronoField.OFFSET_SECONDS ) ) {
 						appendAsTime( appender, temporalAccessor, true, jdbcTimeZone );
 					}
@@ -1499,8 +1488,7 @@ public abstract class AbstractPostgreSQLStructJdbcType implements StructJdbcType
 				else if ( value instanceof java.util.Calendar ) {
 					appendAsTimestampWithMillis( appender, (java.util.Calendar) value, jdbcTimeZone );
 				}
-				else if ( value instanceof TemporalAccessor ) {
-					final TemporalAccessor temporalAccessor = (TemporalAccessor) value;
+				else if ( value instanceof TemporalAccessor temporalAccessor ) {
 					appendAsTimestampWithMicros( appender, temporalAccessor, temporalAccessor.isSupported( ChronoField.OFFSET_SECONDS ), jdbcTimeZone );
 				}
 				else {

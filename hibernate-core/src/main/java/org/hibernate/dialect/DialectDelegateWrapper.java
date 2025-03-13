@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalAmount;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +57,7 @@ import org.hibernate.mapping.Table;
 import org.hibernate.mapping.UniqueKey;
 import org.hibernate.mapping.UserDefinedType;
 import org.hibernate.metamodel.mapping.EntityMappingType;
+import org.hibernate.metamodel.mapping.SqlTypedMapping;
 import org.hibernate.metamodel.spi.RuntimeModelCreationContext;
 import org.hibernate.persister.entity.EntityPersister;
 import org.hibernate.persister.entity.mutation.EntityMutationTarget;
@@ -720,6 +722,16 @@ public class DialectDelegateWrapper extends Dialect {
 	@Override
 	public String getSelectClauseNullString(int sqlType, TypeConfiguration typeConfiguration) {
 		return wrapped.getSelectClauseNullString( sqlType, typeConfiguration );
+	}
+
+	@Override
+	public String getSelectClauseNullString(SqlTypedMapping sqlTypeMapping, TypeConfiguration typeConfiguration) {
+		return wrapped.getSelectClauseNullString( sqlTypeMapping, typeConfiguration );
+	}
+
+	@Override
+	public boolean stripsTrailingSpacesFromChar() {
+		return wrapped.stripsTrailingSpacesFromChar();
 	}
 
 	@Override
@@ -1681,7 +1693,7 @@ public class DialectDelegateWrapper extends Dialect {
 	}
 
 	@Override
-	public String getCheckCondition(String columnName, Set<?> valueSet, JdbcType jdbcType) {
+	public String getCheckCondition(String columnName, Collection<?> valueSet, JdbcType jdbcType) {
 		return wrapped.getCheckCondition( columnName, valueSet, jdbcType );
 	}
 

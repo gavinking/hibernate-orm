@@ -14,7 +14,7 @@ import org.hibernate.metamodel.mapping.CollectionPart;
 import org.hibernate.metamodel.mapping.JdbcMappingContainer;
 import org.hibernate.metamodel.mapping.ModelPart;
 import org.hibernate.query.IllegalQueryOperationException;
-import org.hibernate.query.derived.AnonymousTupleTableGroupProducer;
+import org.hibernate.query.sqm.tuple.internal.AnonymousTupleTableGroupProducer;
 import org.hibernate.query.sqm.ComparisonOperator;
 import org.hibernate.query.common.FetchClauseType;
 import org.hibernate.sql.ast.Clause;
@@ -524,8 +524,7 @@ public class SQLServerSqlAstTranslator<T extends JdbcOperation> extends SqlAstTr
 		if ( expression instanceof Literal ) {
 			appendSql( "()" );
 		}
-		else if ( expression instanceof Summarization ) {
-			Summarization summarization = (Summarization) expression;
+		else if ( expression instanceof Summarization summarization ) {
 			renderCommaSeparated( summarization.getGroupings() );
 			appendSql( " with " );
 			appendSql( summarization.getKind().sqlText() );
@@ -562,7 +561,7 @@ public class SQLServerSqlAstTranslator<T extends JdbcOperation> extends SqlAstTr
 	enum OffsetFetchClauseMode {
 		STANDARD,
 		TOP_ONLY,
-		EMULATED;
+		EMULATED
 	}
 
 	protected void renderMergeStatement(OptionalTableUpdate optionalTableUpdate) {

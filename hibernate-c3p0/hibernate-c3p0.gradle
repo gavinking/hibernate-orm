@@ -5,9 +5,12 @@
  * See the lgpl.txt file in the root directory or <http://www.gnu.org/licenses/lgpl-2.1.html>.
  */
 
-description = 'Integration for c3p0 Connection pooling into Hibernate ORM'
+plugins {
+    id "local.publishing-java-module"
+    id "local.publishing-group-relocation"
+}
 
-apply from: rootProject.file( 'gradle/relocated-published-java-module.gradle' )
+description = 'Integration for c3p0 Connection pooling into Hibernate ORM'
 
 dependencies {
     implementation project( ':hibernate-core' )
@@ -16,6 +19,5 @@ dependencies {
     testImplementation project( ':hibernate-testing' )
     testImplementation jakartaLibs.validation
     testImplementation testLibs.validator
-    testRuntimeOnly testLibs.expressly
 }
 

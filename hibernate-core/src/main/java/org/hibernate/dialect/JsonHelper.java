@@ -18,6 +18,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 
 import org.hibernate.Internal;
+import org.hibernate.internal.build.AllowReflection;
 import org.hibernate.internal.util.CharSequenceHelper;
 import org.hibernate.internal.util.collections.ArrayHelper;
 import org.hibernate.metamodel.mapping.EmbeddableMappingType;
@@ -356,7 +357,7 @@ public class JsonHelper {
 					options
 			);
 			//noinspection unchecked
-			return (X) instantiate( embeddableMappingType, attributeValues, options.getSessionFactory() );
+			return (X) instantiate( embeddableMappingType, attributeValues );
 		}
 		//noinspection unchecked
 		return (X) values;
@@ -378,8 +379,7 @@ public class JsonHelper {
 			jdbcJavaType = elementJavaType;
 		}
 		else {
-			jdbcJavaType = options.getSessionFactory().getTypeConfiguration().getJavaTypeRegistry()
-					.resolveDescriptor( preferredJavaTypeClass );
+			jdbcJavaType = options.getTypeConfiguration().getJavaTypeRegistry().resolveDescriptor( preferredJavaTypeClass );
 		}
 		final CustomArrayList arrayList = new CustomArrayList();
 		final int i = fromArrayString(
@@ -503,7 +503,8 @@ public class JsonHelper {
 							final SelectableMapping selectable = embeddableMappingType.getJdbcValueSelectable(
 									selectableIndex
 							);
-							if ( !( selectable.getJdbcMapping().getJdbcType() instanceof AggregateJdbcType ) ) {
+							if ( !( selectable.getJdbcMapping().getJdbcType()
+									instanceof AggregateJdbcType aggregateJdbcType) ) {
 								throw new IllegalArgumentException(
 										String.format(
 												"JSON starts sub-object for a non-aggregate type at index %d. Selectable [%s] is of type [%s]",
@@ -513,7 +514,6 @@ public class JsonHelper {
 										)
 								);
 							}
-							final AggregateJdbcType aggregateJdbcType = (AggregateJdbcType) selectable.getJdbcMapping().getJdbcType();
 							final EmbeddableMappingType subMappingType = aggregateJdbcType.getEmbeddableMappingType();
 							// This encoding is only possible if the JDBC type is JSON again
 							assert aggregateJdbcType.getJdbcTypeCode() == SqlTypes.JSON
@@ -527,7 +527,7 @@ public class JsonHelper {
 										subValues,
 										options
 								);
-								values[selectableIndex] = instantiate( embeddableMappingType, attributeValues, options.getSessionFactory() );
+								values[selectableIndex] = instantiate( embeddableMappingType, attributeValues );
 							}
 							else {
 								values[selectableIndex] = subValues;
@@ -551,7 +551,7 @@ public class JsonHelper {
 									selectableIndex
 							);
 							final JdbcMapping jdbcMapping = selectable.getJdbcMapping();
-							if ( !( jdbcMapping instanceof BasicPluralType<?, ?> ) ) {
+							if ( !(jdbcMapping instanceof BasicPluralType<?, ?> pluralType) ) {
 								throw new IllegalArgumentException(
 										String.format(
 												"JSON starts array for a non-plural type at index %d. Selectable [%s] is of type [%s]",
@@ -561,7 +561,6 @@ public class JsonHelper {
 										)
 								);
 							}
-							final BasicPluralType<?, ?> pluralType = (BasicPluralType<?, ?>) jdbcMapping;
 							final BasicType<?> elementType = pluralType.getElementType();
 							final CustomArrayList arrayList = new CustomArrayList();
 							i = fromArrayString( string, returnEmbeddable, options, i, arrayList, elementType ) - 1;
@@ -1303,17 +1302,12 @@ public class JsonHelper {
 								subValues,
 								options
 						);
-						final EmbeddableMappingType embeddableMappingType = aggregateJdbcType.getEmbeddableMappingType();
-						return instantiate( embeddableMappingType, subAttributeValues, options.getSessionFactory() ) ;
+						return instantiate( aggregateJdbcType.getEmbeddableMappingType(), subAttributeValues ) ;
 					}
 					return subValues;
 				}
 
-				return jdbcJavaType.fromEncodedString(
-						string,
-						start,
-						end
-				);
+				return jdbcJavaType.fromEncodedString( string, start, end );
 		}
 	}
 
@@ -1619,6 +1613,7 @@ public class JsonHelper {
 		}
 
 		@Override
+		@AllowReflection // We need the ability to create arrays of requested types dynamically.
 		public <T> T[] toArray(T[] a) {
 			//noinspection unchecked
 			final T[] r = a.length >= size

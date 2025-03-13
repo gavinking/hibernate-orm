@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
  */
 @DomainModel(annotatedClasses = { CollectionOwner.class, CollectionOwned.class })
 @SessionFactory(exportSchema = false)
-@SuppressWarnings("unused")
+@SuppressWarnings({"unused", "JUnitMalformedDeclaration"})
 public class MappingTests {
 
 	@Test

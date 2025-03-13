@@ -4,7 +4,6 @@
  */
 package org.hibernate.query.sqm.internal;
 
-import java.io.Serializable;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -44,6 +43,7 @@ import org.hibernate.query.Order;
 import org.hibernate.query.Page;
 import org.hibernate.query.Query;
 import org.hibernate.query.QueryParameter;
+import org.hibernate.query.restriction.Restriction;
 import org.hibernate.query.ResultListTransformer;
 import org.hibernate.query.TupleTransformer;
 import org.hibernate.query.criteria.internal.NamedCriteriaQueryMementoImpl;
@@ -168,12 +168,11 @@ public class QuerySqmImpl<R>
 		this.hql = hql;
 		this.resultType = resultType;
 
-		this.sqm = hqlInterpretation.getSqmStatement();
+		sqm = hqlInterpretation.getSqmStatement();
 
-		this.parameterMetadata = hqlInterpretation.getParameterMetadata();
-		this.domainParameterXref = hqlInterpretation.getDomainParameterXref();
-
-		this.parameterBindings = parameterMetadata.createBindings( session.getFactory() );
+		parameterMetadata = hqlInterpretation.getParameterMetadata();
+		domainParameterXref = hqlInterpretation.getDomainParameterXref();
+		parameterBindings = parameterMetadata.createBindings( session.getFactory() );
 
 		if ( sqm instanceof SqmSelectStatement<?> ) {
 			hqlInterpretation.validateResultType( resultType );
@@ -185,7 +184,7 @@ public class QuerySqmImpl<R>
 		}
 		setComment( hql );
 
-		this.tupleMetadata = buildTupleMetadata( sqm, resultType );
+		tupleMetadata = buildTupleMetadata( sqm, resultType );
 	}
 
 	/**
@@ -209,14 +208,10 @@ public class QuerySqmImpl<R>
 		setComment( hql );
 
 		domainParameterXref = DomainParameterXref.from( sqm );
-		if ( ! domainParameterXref.hasParameters() ) {
-			parameterMetadata = ParameterMetadataImpl.EMPTY;
-		}
-		else {
-			parameterMetadata = new ParameterMetadataImpl( domainParameterXref.getQueryParameters() );
-		}
-
-		this.parameterBindings = parameterMetadata.createBindings( producer.getFactory() );
+		parameterMetadata = !domainParameterXref.hasParameters()
+				? ParameterMetadataImpl.EMPTY
+				: new ParameterMetadataImpl( domainParameterXref.getQueryParameters() );
+		parameterBindings = parameterMetadata.createBindings( producer.getFactory() );
 
 		// Parameters might be created through HibernateCriteriaBuilder.value which we need to bind here
 		for ( SqmParameter<?> sqmParameter : domainParameterXref.getParameterResolutions().getSqmParameters() ) {
@@ -231,11 +226,11 @@ public class QuerySqmImpl<R>
 			validateCriteriaQuery( queryPart );
 			selectStatement.validateResultType( expectedResultType );
 		}
-		else {
+		else if ( sqm instanceof AbstractSqmDmlStatement<R> update ) {
 			if ( expectedResultType != null ) {
 				throw new IllegalQueryOperationException( "Result type given for a non-SELECT Query", hql, null );
 			}
-			( (AbstractSqmDmlStatement<?>) sqm ).validate( hql );
+			update.validate( hql );
 		}
 
 		resultType = expectedResultType;
@@ -704,8 +699,8 @@ public class QuerySqmImpl<R>
 	}
 
 	@Override
-	public SqmQueryImplementor<R> setMaxResults(int maxResult) {
-		super.setMaxResults( maxResult );
+	public SqmQueryImplementor<R> setMaxResults(int maxResults) {
+		super.setMaxResults( maxResults );
 		return this;
 	}
 
@@ -754,6 +749,12 @@ public class QuerySqmImpl<R>
 	@Override
 	public Query<R> setOrder(Order<? super R> order) {
 		super.setOrder(order);
+		return this;
+	}
+
+	@Override
+	public Query<R> addRestriction(Restriction<? super R> restriction) {
+		super.addRestriction( restriction );
 		return this;
 	}
 
@@ -1264,22 +1265,4 @@ public class QuerySqmImpl<R>
 		return this;
 	}
 
-
-	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-	// optional object loading
-
-	@Override
-	public void setOptionalId(Serializable id) {
-		throw new UnsupportedOperationException( "Not sure yet how to handle this in SQM based queries, but for sure it will be different" );
-	}
-
-	@Override
-	public void setOptionalEntityName(String entityName) {
-		throw new UnsupportedOperationException( "Not sure yet how to handle this in SQM based queries, but for sure it will be different" );
-	}
-
-	@Override
-	public void setOptionalObject(Object optionalObject) {
-		throw new UnsupportedOperationException( "Not sure yet how to handle this in SQM based queries, but for sure it will be different" );
-	}
 }

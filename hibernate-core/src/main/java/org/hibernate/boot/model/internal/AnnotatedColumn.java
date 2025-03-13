@@ -4,7 +4,6 @@
  */
 package org.hibernate.boot.model.internal;
 
-import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -39,11 +38,10 @@ import org.hibernate.mapping.Table;
 import org.hibernate.models.spi.MemberDetails;
 import org.hibernate.models.spi.SourceModelBuildingContext;
 
-import org.jboss.logging.Logger;
-
 import static org.hibernate.boot.model.internal.BinderHelper.getPath;
 import static org.hibernate.boot.model.internal.BinderHelper.getRelativePath;
 import static org.hibernate.boot.model.internal.DialectOverridesAnnotationHelper.getOverridableAnnotation;
+import static org.hibernate.internal.CoreLogging.messageLogger;
 import static org.hibernate.internal.util.StringHelper.isBlank;
 import static org.hibernate.internal.util.StringHelper.isEmpty;
 import static org.hibernate.internal.util.StringHelper.isNotEmpty;
@@ -69,7 +67,7 @@ import static org.hibernate.internal.util.collections.CollectionHelper.isNotEmpt
  */
 public class AnnotatedColumn {
 
-	private static final CoreMessageLogger LOG = Logger.getMessageLogger( MethodHandles.lookup(), CoreMessageLogger.class, AnnotatedColumn.class.getName() );
+	private static final CoreMessageLogger LOG = messageLogger( AnnotatedColumn.class );
 
 	private Column mappingColumn;
 	private boolean insertable = true;
@@ -93,14 +91,12 @@ public class AnnotatedColumn {
 	private String defaultValue;
 	private String generatedAs;
 
-//	private String comment;
 	private final List<CheckConstraint> checkConstraints = new ArrayList<>();
 
 	private AnnotatedColumns parent;
 
-	private String options;
-
-	private String comment;
+	String options;
+	String comment;
 
 	public AnnotatedColumns getParent() {
 		return parent;
@@ -244,7 +240,9 @@ public class AnnotatedColumn {
 
 	public void bind() {
 		if ( isNotEmpty( formulaString ) ) {
-			LOG.debugf( "Binding formula %s", formulaString );
+			if ( LOG.isDebugEnabled() ) {
+				LOG.debug( "Binding formula: " + formulaString );
+			}
 			formula = new Formula();
 			formula.setFormula( formulaString );
 		}
@@ -277,7 +275,7 @@ public class AnnotatedColumn {
 				mappingColumn.setGeneratedAs( generatedAs );
 			}
 			if ( LOG.isDebugEnabled() ) {
-				LOG.debugf( "Binding column: %s", toString() );
+				LOG.debug( "Binding column: " + logicalColumnName );
 			}
 		}
 	}
@@ -344,18 +342,61 @@ public class AnnotatedColumn {
 	}
 
 	public void redefineColumnName(String columnName, String propertyName, boolean applyNamingStrategy) {
-		if ( isNotEmpty( columnName ) ) {
-			mappingColumn.setName( processColumnName( columnName, applyNamingStrategy ) );
+		if ( StringHelper.isEmpty( columnName ) && StringHelper.isEmpty( propertyName ) ) {
+			// nothing to do
+			return;
+		}
+		final String logicalColumnName = resolveLogicalColumnName( columnName, propertyName );
+		mappingColumn.setName( processColumnName( logicalColumnName, applyNamingStrategy ) );
+	}
+
+	private String resolveLogicalColumnName(String columnName, String propertyName) {
+		final String baseColumnName = StringHelper.isNotEmpty( columnName )
+				? columnName
+				: inferColumnName( propertyName );
+
+		if ( parent.getPropertyHolder() != null && parent.getPropertyHolder().isComponent() ) {
+			// see if we need to apply one-or-more @EmbeddedColumnNaming patterns
+			return applyEmbeddedColumnNaming( baseColumnName, (ComponentPropertyHolder) parent.getPropertyHolder() );
 		}
 		else {
-			if ( propertyName != null && applyNamingStrategy ) {
-				mappingColumn.setName( inferColumnName( propertyName ) );
-			}
-			//Do nothing otherwise
+			return baseColumnName;
 		}
 	}
 
-	private String processColumnName(String columnName, boolean applyNamingStrategy) {
+	private String applyEmbeddedColumnNaming(String inferredColumnName, ComponentPropertyHolder propertyHolder) {
+		// code
+		String result = inferredColumnName;
+		boolean appliedAnyPatterns = false;
+
+		final String columnNamingPattern = propertyHolder.getComponent().getColumnNamingPattern();
+		if ( StringHelper.isNotEmpty( columnNamingPattern ) ) {
+			// zip_code
+			result = String.format( columnNamingPattern, result );
+			appliedAnyPatterns = true;
+		}
+
+		ComponentPropertyHolder tester = propertyHolder;
+		while ( tester.parent.isComponent() ) {
+			final ComponentPropertyHolder parentHolder = (ComponentPropertyHolder) tester.parent;
+			final String parentColumnNamingPattern = parentHolder.getComponent().getColumnNamingPattern();
+			if ( StringHelper.isNotEmpty( parentColumnNamingPattern ) ) {
+				// 	home_zip_code
+				result = String.format( parentColumnNamingPattern, result );
+				appliedAnyPatterns = true;
+			}
+			tester = parentHolder;
+		}
+
+		if ( appliedAnyPatterns ) {
+			// we need to adjust the logical name to be picked up in `#addColumnBinding`
+			this.logicalColumnName = result;
+		}
+
+		return result;
+	}
+
+	protected String processColumnName(String columnName, boolean applyNamingStrategy) {
 		if ( applyNamingStrategy ) {
 			final Database database = getBuildingContext().getMetadataCollector().getDatabase();
 			return getBuildingContext().getBuildingOptions().getPhysicalNamingStrategy()
@@ -368,7 +409,7 @@ public class AnnotatedColumn {
 
 	}
 
-	private String inferColumnName(String propertyName) {
+	protected String inferColumnName(String propertyName) {
 		final Database database = getBuildingContext().getMetadataCollector().getDatabase();
 		final ObjectNameNormalizer normalizer = getBuildingContext().getObjectNameNormalizer();
 		final ImplicitNamingStrategy implicitNamingStrategy = getBuildingContext().getBuildingOptions().getImplicitNamingStrategy();
@@ -709,7 +750,9 @@ public class AnnotatedColumn {
 						+ " '@AttributeOverride's but the overridden property has " + overriddenCols.length
 						+ " columns (every column must have exactly one '@AttributeOverride')" );
 			}
-			LOG.debugf( "Column(s) overridden for property %s", inferredData.getPropertyName() );
+			if ( LOG.isDebugEnabled() ) {
+				LOG.debug( "Column mapping overridden for property: " + inferredData.getPropertyName() );
+			}
 			return isEmpty( overriddenCols ) ? null : overriddenCols;
 		}
 		else {
@@ -1020,14 +1063,11 @@ public class AnnotatedColumn {
 	public String toString() {
 		final StringBuilder string = new StringBuilder();
 		string.append( getClass().getSimpleName() ).append( "(" );
-		if ( isNotEmpty( logicalColumnName ) ) {
-			string.append( "column='" ).append( logicalColumnName ).append( "'," );
-		}
 		if ( isNotEmpty( formulaString ) ) {
-			string.append( "formula='" ).append( formulaString ).append( "'," );
+			string.append( "formula='" ).append( formulaString );
 		}
-		if ( string.charAt( string.length()-1 ) == ',' ) {
-			string.setLength( string.length()-1 );
+		else if ( isNotEmpty( logicalColumnName ) ) {
+			string.append( "column='" ).append( logicalColumnName );
 		}
 		string.append( ")" );
 		return string.toString();
@@ -1051,4 +1091,7 @@ public class AnnotatedColumn {
 		this.options = options;
 	}
 
+	void setComment(String comment){
+		this.comment = comment;
+	}
 }

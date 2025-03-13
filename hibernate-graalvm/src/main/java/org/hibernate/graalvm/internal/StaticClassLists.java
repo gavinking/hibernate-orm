@@ -6,7 +6,6 @@ package org.hibernate.graalvm.internal;
 
 
 import org.hibernate.tool.schema.internal.script.MultiLineSqlScriptExtractor;
-import org.hibernate.type.EnumType;
 
 /**
  * The place to list all "static" types we know of that need to be possible to
@@ -36,9 +35,7 @@ final class StaticClassLists {
 				org.hibernate.id.enhanced.SequenceStyleGenerator.class,
 				org.hibernate.boot.model.naming.ImplicitNamingStrategyJpaCompliantImpl.class,
 				org.hibernate.resource.transaction.backend.jta.internal.JtaTransactionCoordinatorBuilderImpl.class,
-				EnumType.class,
 				MultiLineSqlScriptExtractor.class,
-
 		};
 	}
 
@@ -47,7 +44,6 @@ final class StaticClassLists {
 				//Eventlisteners need to be registered for reflection to allow creation via Array#newInstance ;
 				// types need to be in synch with those declared in org.hibernate.event.spi.EventType
 				org.hibernate.event.spi.LoadEventListener[].class,
-				org.hibernate.event.spi.ResolveNaturalIdEventListener[].class,
 				org.hibernate.event.spi.InitializeCollectionEventListener[].class,
 				org.hibernate.event.spi.PersistEventListener[].class,
 				org.hibernate.event.spi.MergeEventListener[].class,
@@ -80,4 +76,14 @@ final class StaticClassLists {
 		};
 	}
 
+	/**
+	 * The classes listed below use a SecureRandom. We need to avoid static initialization at build time of these,
+	 * for it will trigger an error in GraalVM native images.
+	 */
+	public static Class<?>[] typesNeedingRuntimeInitialization() {
+		return new Class[] {
+				org.hibernate.id.uuid.UuidVersion6Strategy.Holder.class,
+				org.hibernate.id.uuid.UuidVersion7Strategy.Holder.class,
+		};
+	}
 }

@@ -19,9 +19,9 @@ buildscript {
 
 
 plugins {
-	id 'org.hibernate.build.xjc-jakarta' version '2.0.3' apply false
+	id "local.module"
+
 	id "org.hibernate.build.version-injection" version "2.0.0" apply false
-	id 'org.hibernate.matrix-test' version '3.1.1' apply false
 	id 'org.hibernate.orm.database-service' apply false
 	id 'biz.aQute.bnd' version '7.0.0' apply false
 
@@ -37,87 +37,38 @@ plugins {
 	id "com.dorongold.task-tree" version "2.1.1"
 }
 
-apply from: file( 'gradle/module.gradle' )
-
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Release Task
+// Releasing
 
-task release {
-	description = "The task performed when we are performing a release build.  Relies on " +
-			"the fact that subprojects will appropriately define a release task " +
-			"themselves if they have any release-related activities to perform"
-
-	doFirst {
-		def javaVersionsInUse = jdkVersions.allVersions
-		if ( javaVersionsInUse != [JavaLanguageVersion.of( 11 )].toSet() ) {
-			throw new IllegalStateException( "Please use JDK 11 to perform the release. Currently using: ${javaVersionsInUse}" )
-		}
-	}
+tasks.register( 'releasePrepare' ) {
+	group "release-prepare"
+	description "Scripted release 'Release Prepare' stage.  " +
+			"Includes various checks as to the publish-ability of the project: testing, generation, etc.  " +
+			"Sub-projects register their own `releasePrepare` to hook into this stage."
+	// See `:release:releasePrepare` which does a lot of heavy lifting here
 }
 
-task publish {
-	description = "The task performed when we want to just publish maven artifacts.  Relies on " +
-			"the fact that subprojects will appropriately define a release task " +
-			"themselves if they have any publish-related activities to perform"
+tasks.register( 'releasePerform' ) {
+	group "release-perform"
+	description "Scripted release 'Release Perform' stage.  " +
+			"Generally this entails publishing artifacts to various servers.  " +
+			"Sub-projects register their own `releasePerform` to hook into this stage."
+	// See `:release:releasePerform` which does a lot of heavy lifting here
 }
 
-
-
-def ossrhUsername = extractPropertyOrSetting( "OSSRH_USER" )
-def ossrhPassword = extractPropertyOrSetting( "OSSRH_PASSWORD" )
-
-String extractPropertyOrSetting(String name) {
-	if ( project.hasProperty( name) ) {
-		return project.property( name )
-	}
-
-	def sysProp = System.getProperty( name )
-	if ( sysProp != null ) {
-		return sysProp
-	}
-
-	def envProp = System.getenv( name )
-	if ( envProp != null ) {
-		return envProp
-	}
-
-	return null
-}
 
 nexusPublishing {
 	repositories {
-		sonatype {
-			username = ossrhUsername
-			password = ossrhPassword
-		}
+		sonatype()
 	}
 }
-
-gradle.taskGraph.addTaskExecutionGraphListener(
-		new TaskExecutionGraphListener() {
-			@Override
-			void graphPopulated(TaskExecutionGraph graph) {
-				for ( final def task in graph.allTasks ) {
-					if ( task instanceof PublishToMavenRepository ) {
-						if ( ossrhUsername == null ) {
-							throw new RuntimeException( "OSSRH username not specified, but publishing was requested" )
-						}
-						if ( ossrhPassword == null ) {
-							throw new RuntimeException( "OSSRH password not specified, but publishing was requested" )
-						}
-						break
-					}
-				}
-			}
-		}
-)
 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // CI Build Task
 
-task ciBuild {
+tasks.register('ciBuild') {
 	description = "The task performed when one of the 'main' jobs are triggered on the " +
 			"CI server.  Just as above, relies on the fact that subprojects will " +
 			"appropriately define a release task themselves if they have any tasks " +

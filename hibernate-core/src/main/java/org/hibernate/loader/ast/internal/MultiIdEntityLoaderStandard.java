@@ -18,7 +18,7 @@ import org.hibernate.event.spi.EventSource;
 import org.hibernate.loader.ast.spi.MultiIdLoadOptions;
 import org.hibernate.loader.ast.spi.MultiKeyLoadSizingStrategy;
 import org.hibernate.persister.entity.EntityPersister;
-import org.hibernate.query.spi.QueryOptions;
+import org.hibernate.query.spi.QueryOptionsAdapter;
 import org.hibernate.sql.ast.tree.select.SelectStatement;
 import org.hibernate.sql.exec.internal.JdbcParameterBindingsImpl;
 import org.hibernate.sql.exec.spi.JdbcParameterBindings;
@@ -163,12 +163,18 @@ public class MultiIdEntityLoaderStandard<T> extends AbstractMultiIdEntityLoader<
 
 		return getJdbcSelectExecutor().list(
 				getSqlAstTranslatorFactory().buildSelectTranslator( getSessionFactory(), sqlAst )
-						.translate( jdbcParameterBindings, QueryOptions.NONE ),
+						.translate( jdbcParameterBindings, new QueryOptionsAdapter() {
+							@Override
+							public LockOptions getLockOptions() {
+								return lockOptions;
+							}
+						} ),
 				jdbcParameterBindings,
 				new ExecutionContextWithSubselectFetchHandler(
 						session,
 						fetchableKeysHandler( session, sqlAst, jdbcParameters, jdbcParameterBindings ),
-						TRUE.equals( loadOptions.getReadOnly( session ) )
+						TRUE.equals( loadOptions.getReadOnly( session ) ),
+						lockOptions
 				),
 				RowTransformerStandardImpl.instance(),
 				null,
@@ -212,5 +218,11 @@ public class MultiIdEntityLoaderStandard<T> extends AbstractMultiIdEntityLoader<
 			numberOfIdsLeft = numberOfIdsLeft - batchSize;
 			idPosition += batchSize;
 		}
+	}
+
+	@Override
+	protected Object[] toIdArray(List<Object> ids) {
+		// This loader implementation doesn't need arrays to have a specific type, Object[] will do.
+		return ids.toArray( new Object[0] );
 	}
 }

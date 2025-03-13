@@ -16,7 +16,6 @@ import java.util.List;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.hibernate.Internal;
-import org.hibernate.engine.spi.LazySessionWrapperOptions;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.internal.util.CharSequenceHelper;
 import org.hibernate.metamodel.mapping.EmbeddableMappingType;
@@ -264,8 +263,7 @@ public class XmlHelper {
 								subValues,
 								options
 						);
-						final EmbeddableMappingType embeddableMappingType = aggregateJdbcType.getEmbeddableMappingType();
-						return instantiate( embeddableMappingType, subAttributeValues, options.getSessionFactory() ) ;
+						return instantiate( aggregateJdbcType.getEmbeddableMappingType(), subAttributeValues ) ;
 					}
 					return subValues;
 				}
@@ -309,7 +307,7 @@ public class XmlHelper {
 		if ( returnEmbeddable ) {
 			final StructAttributeValues attributeValues = StructHelper.getAttributeValues( embeddableMappingType, array, options );
 			//noinspection unchecked
-			return (X) instantiate( embeddableMappingType, attributeValues, options.getSessionFactory() );
+			return (X) instantiate( embeddableMappingType, attributeValues );
 		}
 		//noinspection unchecked
 		return (X) array;
@@ -336,8 +334,7 @@ public class XmlHelper {
 			jdbcJavaType = elementJavaType;
 		}
 		else {
-			jdbcJavaType = options.getSessionFactory().getTypeConfiguration().getJavaTypeRegistry()
-					.resolveDescriptor( preferredJavaTypeClass );
+			jdbcJavaType = options.getTypeConfiguration().getJavaTypeRegistry().resolveDescriptor( preferredJavaTypeClass );
 		}
 		final ArrayList<Object> arrayList = new ArrayList<>();
 		final int end = fromArrayString(
@@ -516,8 +513,7 @@ public class XmlHelper {
 											subValues,
 											options
 									);
-									values[selectableIndex] = instantiate( subMappingType, attributeValues,
-											options.getSessionFactory() );
+									values[selectableIndex] = instantiate( subMappingType, attributeValues );
 								}
 								else {
 									values[selectableIndex] = subValues;
@@ -647,8 +643,9 @@ public class XmlHelper {
 								final int end = fromString( embeddableMappingType, string, returnEmbeddable, options, array, contentStart );
 
 								if ( returnEmbeddable ) {
-									final StructAttributeValues attributeValues = StructHelper.getAttributeValues( embeddableMappingType, array, options );
-									arrayList.add( instantiate( embeddableMappingType, attributeValues, options.getSessionFactory() ) );
+									final StructAttributeValues attributeValues =
+											StructHelper.getAttributeValues( embeddableMappingType, array, options );
+									arrayList.add( instantiate( embeddableMappingType, attributeValues ) );
 								}
 								else {
 									arrayList.add( array );
@@ -1124,19 +1121,10 @@ public class XmlHelper {
 		}
 		//noinspection unchecked
 		final JavaType<Object> javaType = (JavaType<Object>) pluralJavaType;
-		final LazySessionWrapperOptions lazySessionWrapperOptions = new LazySessionWrapperOptions( sessionFactory );
 		// Produce the XML string for a collection with a null element to find out the root and element tag names
-		final String nullElementXml;
-		try {
-			nullElementXml = sessionFactory.getSessionFactoryOptions().getXmlFormatMapper().toString(
-					javaType.fromString( "{null}" ),
-					javaType,
-					lazySessionWrapperOptions
-			);
-		}
-		finally {
-			lazySessionWrapperOptions.cleanup();
-		}
+		final String nullElementXml =
+				sessionFactory.getSessionFactoryOptions().getXmlFormatMapper()
+						.toString( javaType.fromString( "{null}" ), javaType, sessionFactory.getWrapperOptions() );
 
 		// There must be an end tag for the root, so find that first
 		final int rootCloseTagPosition = nullElementXml.lastIndexOf( '<' );

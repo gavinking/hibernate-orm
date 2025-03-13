@@ -35,7 +35,7 @@ public class SqmMemberOfPredicate extends AbstractNegatableSqmPredicate {
 		this.pluralPath = pluralPath;
 		this.leftHandExpression = leftHandExpression;
 
-		final SimpleDomainType<?> simpleDomainType = pluralPath.getReferencedPathSource().getElementType();
+		final SimpleDomainType<?> simpleDomainType = pluralPath.getPluralAttribute().getElementType();
 
 		if ( !areTypesComparable( leftHandExpression.getNodeType(), simpleDomainType, nodeBuilder ) ) {
 			throw new SemanticException(
@@ -83,13 +83,13 @@ public class SqmMemberOfPredicate extends AbstractNegatableSqmPredicate {
 	}
 
 	@Override
-	public void appendHqlString(StringBuilder sb) {
-		leftHandExpression.appendHqlString( sb );
+	public void appendHqlString(StringBuilder hql) {
+		leftHandExpression.appendHqlString( hql );
 		if ( isNegated() ) {
-			sb.append( " not" );
+			hql.append( " not" );
 		}
-		sb.append( " member of " );
-		pluralPath.appendHqlString( sb );
+		hql.append( " member of " );
+		pluralPath.appendHqlString( hql );
 	}
 
 	@Override

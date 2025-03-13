@@ -17,6 +17,7 @@ import org.hibernate.dialect.StructAttributeValues;
 import org.hibernate.dialect.StructHelper;
 import org.hibernate.engine.jdbc.Size;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
+import org.hibernate.internal.build.AllowReflection;
 import org.hibernate.metamodel.mapping.EmbeddableMappingType;
 import org.hibernate.type.BasicPluralType;
 import org.hibernate.type.descriptor.ValueBinder;
@@ -40,6 +41,7 @@ import static org.hibernate.dialect.StructHelper.instantiate;
  * @author Christian Beikov
  * @author Jordan Gigov
  */
+@AllowReflection // See https://hibernate.atlassian.net/browse/HHH-16809
 public class ArrayJdbcType implements JdbcType {
 
 	private final JdbcType elementJdbcType;
@@ -155,7 +157,7 @@ public class ArrayJdbcType implements JdbcType {
 			return objects;
 		}
 		else {
-			final TypeConfiguration typeConfiguration = options.getSessionFactory().getTypeConfiguration();
+			final TypeConfiguration typeConfiguration = options.getTypeConfiguration();
 			final JdbcType underlyingJdbcType =
 					typeConfiguration.getJdbcTypeRegistry().getDescriptor( elementJdbcType.getDefaultSqlTypeCode() );
 			final Class<?> preferredJavaTypeClass = elementJdbcType.getPreferredJavaTypeClass( options );
@@ -171,8 +173,7 @@ public class ArrayJdbcType implements JdbcType {
 	}
 
 	protected <X> X getArray(BasicExtractor<X> extractor, java.sql.Array array, WrapperOptions options) throws SQLException {
-		if ( array != null && getElementJdbcType() instanceof AggregateJdbcType ) {
-			final AggregateJdbcType aggregateJdbcType = (AggregateJdbcType) getElementJdbcType();
+		if ( array != null && getElementJdbcType() instanceof AggregateJdbcType aggregateJdbcType ) {
 			final EmbeddableMappingType embeddableMappingType = aggregateJdbcType.getEmbeddableMappingType();
 			final Object rawArray = array.getArray();
 			final Object[] domainObjects = new Object[Array.getLength( rawArray )];
@@ -180,7 +181,7 @@ public class ArrayJdbcType implements JdbcType {
 				final Object[] aggregateRawValues = aggregateJdbcType.extractJdbcValues( Array.get( rawArray, i ), options );
 				final StructAttributeValues attributeValues =
 						StructHelper.getAttributeValues( embeddableMappingType, aggregateRawValues, options );
-				domainObjects[i] = instantiate( embeddableMappingType, attributeValues, options.getSessionFactory() );
+				domainObjects[i] = instantiate( embeddableMappingType, attributeValues );
 			}
 			return extractor.getJavaType().wrap( domainObjects, options );
 		}

@@ -56,6 +56,8 @@ import org.hibernate.internal.util.JdbcExceptionHelper;
 import org.hibernate.mapping.AggregateColumn;
 import org.hibernate.mapping.Table;
 import org.hibernate.metamodel.mapping.EntityMappingType;
+import org.hibernate.metamodel.mapping.SqlExpressible;
+import org.hibernate.metamodel.mapping.SqlTypedMapping;
 import org.hibernate.metamodel.spi.RuntimeModelCreationContext;
 import org.hibernate.procedure.internal.PostgreSQLCallableStatementSupport;
 import org.hibernate.procedure.spi.CallableStatementSupport;
@@ -232,6 +234,7 @@ public class PostgreSQLLegacyDialect extends Dialect {
 			case NCHAR:
 			case VARCHAR:
 			case NVARCHAR:
+				return "varchar";
 			case LONG32VARCHAR:
 			case LONG32NVARCHAR:
 				return "text";
@@ -647,7 +650,7 @@ public class PostgreSQLLegacyDialect extends Dialect {
 		functionFactory.arrayToString_postgresql();
 
 		if ( getVersion().isSameOrAfter( 17 ) ) {
-			functionFactory.jsonValue();
+			functionFactory.jsonValue_postgresql( true );
 			functionFactory.jsonQuery();
 			functionFactory.jsonExists();
 			functionFactory.jsonObject();
@@ -657,7 +660,7 @@ public class PostgreSQLLegacyDialect extends Dialect {
 			functionFactory.jsonTable();
 		}
 		else {
-			functionFactory.jsonValue_postgresql();
+			functionFactory.jsonValue_postgresql( false );
 			functionFactory.jsonQuery_postgresql();
 			functionFactory.jsonExists_postgresql();
 			if ( getVersion().isSameOrAfter( 16 ) ) {
@@ -723,12 +726,7 @@ public class PostgreSQLLegacyDialect extends Dialect {
 		functionContributions.getFunctionRegistry().registerAlternateKey( "truncate", "trunc" );
 		functionFactory.dateTrunc();
 
-		if ( getVersion().isSameOrAfter( 17 ) ) {
-			functionFactory.unnest( null, "ordinality" );
-		}
-		else {
-			functionFactory.unnest_postgresql();
-		}
+		functionFactory.unnest_postgresql( getVersion().isSameOrAfter( 17 ) );
 		functionFactory.generateSeries( null, "ordinality", false );
 	}
 
@@ -947,6 +945,14 @@ public class PostgreSQLLegacyDialect extends Dialect {
 	public String getSelectClauseNullString(int sqlType, TypeConfiguration typeConfiguration) {
 		// Workaround for postgres bug #1453
 		return "cast(null as " + typeConfiguration.getDdlTypeRegistry().getDescriptor( sqlType ).getRawTypeName() + ")";
+	}
+
+	@Override
+	public String getSelectClauseNullString(SqlTypedMapping sqlType, TypeConfiguration typeConfiguration) {
+		final String castTypeName = typeConfiguration.getDdlTypeRegistry()
+				.getDescriptor( sqlType.getJdbcMapping().getJdbcType().getDdlTypeCode() )
+				.getCastTypeName( sqlType.toSize(), (SqlExpressible) sqlType.getJdbcMapping(), typeConfiguration.getDdlTypeRegistry() );
+		return "cast(null as " + castTypeName + ")";
 	}
 
 	@Override

@@ -13,6 +13,7 @@ import org.hibernate.SessionFactory;
 import org.hibernate.cache.spi.access.AccessType;
 import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.cfg.CacheSettings;
+import org.hibernate.cfg.Environment;
 import org.hibernate.cfg.JdbcSettings;
 import org.hibernate.cfg.JpaComplianceSettings;
 import org.hibernate.cfg.MappingSettings;
@@ -29,8 +30,42 @@ import jakarta.persistence.SharedCacheMode;
 import jakarta.persistence.ValidationMode;
 
 /**
- * Hibernate extension to the Jakarta Persistence {@link PersistenceConfiguration}
- * contract.
+ * Extends the Jakarta Persistence-defined {@link PersistenceConfiguration}
+ * with operations specific to Hibernate.
+ * <p>
+ * An instance of {@code Configuration} may be obtained simply by
+ * {@linkplain #HibernatePersistenceConfiguration(String) instantiation},
+ * and may be used to aggregate:
+ * <ul>
+ * <li>{@linkplain #property(String, Object) configuration properties}
+ *     from various sources, and
+ * <li>entity O/R mappings, defined in either
+ *     {@linkplain #managedClasses(Class...) annotated classes}, or
+ *     {@linkplain #mappingFiles(Collection) XML mapping documents}.
+ * </ul>
+ * <p>
+ * Standard JPA configuration properties are enumerated by the supertype
+ * {@link PersistenceConfiguration}. All configuration properties understood
+ * by Hibernate are enumerated by {@link AvailableSettings}.
+ * <p>
+ * <pre>
+ * SessionFactory factory = new HibernatePersistenceConfiguration()
+ *     // scan classes for mapping annotations
+ *     .managedClasses(Item.class, Bid.class, User.class)
+ *     // set a configuration property
+ *     .setProperty(PersistenceConfiguration.JDBC_DATASOURCE,
+ *                  "java:comp/env/jdbc/test")
+ *     .buildSessionFactory();
+ * </pre>
+ * <p>
+ * When instantiated, an instance of
+ * {@code HibernatePersistenceConfiguration} has its properties initially
+ * populated from the {@linkplain Environment#getProperties() environment},
+ * including:
+ * <ul>
+ * <li>JVM {@linkplain System#getProperties() system properties}, and
+ * <li>properties specified in {@code hibernate.properties}.
+ * </ul>
  *
  * @apiNote The specification explicitly encourages implementors to extend
  *          {@link PersistenceConfiguration} to accommodate vendor-specific
@@ -64,8 +99,8 @@ public class HibernatePersistenceConfiguration extends PersistenceConfiguration 
 	}
 
 	/**
-	 * JDBC driver class name for non-{@link javax.sql.DataSource DataSource}
-	 * connection.
+	 * JDBC driver class name. This setting is ignored when Hibernate is configured
+	 * to obtain connections from a {@link javax.sql.DataSource}.
 	 *
 	 * @see #JDBC_DRIVER
 	 */
@@ -75,7 +110,8 @@ public class HibernatePersistenceConfiguration extends PersistenceConfiguration 
 	}
 
 	/**
-	 * JDBC URL of non-{@link javax.sql.DataSource DataSource} JDBC connection.
+	 * JDBC URL. This setting is ignored when Hibernate is configured to obtain
+	 * connections from a {@link javax.sql.DataSource}.
 	 *
 	 * @see #JDBC_URL
 	 */
@@ -85,10 +121,12 @@ public class HibernatePersistenceConfiguration extends PersistenceConfiguration 
 	}
 
 	/**
-	 * Username for non-{@link javax.sql.DataSource DataSource} JDBC connection.
+	 * Username for JDBC authentication.
 	 *
 	 * @see #JDBC_USER
 	 * @see #jdbcPassword
+	 * @see java.sql.DriverManager#getConnection(String, String, String)
+	 * @see javax.sql.DataSource#getConnection(String, String)
 	 */
 	public HibernatePersistenceConfiguration jdbcUsername(String username) {
 		property( JDBC_USER, username );
@@ -96,10 +134,12 @@ public class HibernatePersistenceConfiguration extends PersistenceConfiguration 
 	}
 
 	/**
-	 * Password for non-{@link javax.sql.DataSource DataSource} JDBC connection.
+	 * Password for JDBC authentication.
 	 *
 	 * @see #JDBC_PASSWORD
 	 * @see #jdbcUsername
+	 * @see java.sql.DriverManager#getConnection(String, String, String)
+	 * @see javax.sql.DataSource#getConnection(String, String)
 	 */
 	public HibernatePersistenceConfiguration jdbcPassword(String password) {
 		property( JDBC_PASSWORD, password );
@@ -107,17 +147,59 @@ public class HibernatePersistenceConfiguration extends PersistenceConfiguration 
 	}
 
 	/**
-	 * Username and password for non-{@link javax.sql.DataSource DataSource}
-	 * JDBC connection.
+	 * Username and password for JDBC authentication.
 	 *
 	 * @see #JDBC_USER
 	 * @see #JDBC_PASSWORD
 	 * @see #jdbcUsername
 	 * @see #jdbcPassword
+	 * @see java.sql.DriverManager#getConnection(String, String, String)
+	 * @see javax.sql.DataSource#getConnection(String, String)
 	 */
 	public HibernatePersistenceConfiguration jdbcCredentials(String username, String password) {
 		jdbcUsername( username );
 		jdbcPassword( password );
+		return this;
+	}
+
+	/**
+	 * The JDBC connection pool size. This setting is ignored when Hibernate is
+	 * configured to obtain connections from a {@link javax.sql.DataSource}.
+	 *
+	 * @see JdbcSettings#POOL_SIZE
+	 */
+	public HibernatePersistenceConfiguration jdbcPoolSize(int poolSize) {
+		property( JdbcSettings.POOL_SIZE, poolSize );
+		return this;
+	}
+
+	/**
+	 * The JDBC {@linkplain java.sql.Connection#setAutoCommit autocommit mode}
+	 * for pooled connections. This setting is ignored when Hibernate is
+	 * configured to obtain connections from a {@link javax.sql.DataSource}.
+	 *
+	 * @see JdbcSettings#AUTOCOMMIT
+	 */
+	public HibernatePersistenceConfiguration jdbcAutocommit(boolean autocommit) {
+		property( JdbcSettings.AUTOCOMMIT, autocommit );
+		return this;
+	}
+
+	/**
+	 * The JDBC {@linkplain java.sql.Connection#setTransactionIsolation transaction
+	 * isolation level}. This setting is ignored when Hibernate is configured to
+	 * obtain connections from a {@link javax.sql.DataSource}.
+	 * <p>
+	 * Possible values are enumerated by {@link java.sql.Connection}:
+	 * {@link java.sql.Connection#TRANSACTION_READ_UNCOMMITTED},
+	 * {@link java.sql.Connection#TRANSACTION_READ_COMMITTED},
+	 * {@link java.sql.Connection#TRANSACTION_REPEATABLE_READ}, and
+	 * {@link java.sql.Connection#TRANSACTION_SERIALIZABLE}.
+	 *
+	 * @see JdbcSettings#ISOLATION
+	 */
+	public HibernatePersistenceConfiguration jdbcTransactionIsolation(int isolationLevel) {
+		property( JdbcSettings.ISOLATION, isolationLevel );
 		return this;
 	}
 

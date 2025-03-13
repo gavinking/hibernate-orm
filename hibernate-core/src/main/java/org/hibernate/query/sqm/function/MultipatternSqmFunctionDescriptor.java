@@ -4,7 +4,7 @@
  */
 package org.hibernate.query.sqm.function;
 
-import org.hibernate.query.ReturnableType;
+import org.hibernate.metamodel.model.domain.ReturnableType;
 import org.hibernate.query.spi.QueryEngine;
 import org.hibernate.query.sqm.produce.function.ArgumentTypesValidator;
 import org.hibernate.query.sqm.produce.function.FunctionParameterType;
@@ -29,7 +29,7 @@ import static org.hibernate.query.sqm.produce.function.StandardFunctionReturnTyp
  */
 public class MultipatternSqmFunctionDescriptor extends AbstractSqmFunctionDescriptor {
 
-	private SqmFunctionDescriptor[] functions;
+	private final SqmFunctionDescriptor[] functions;
 	private String argumentListSignature;
 
 	private static int first(SqmFunctionDescriptor[] functions) {

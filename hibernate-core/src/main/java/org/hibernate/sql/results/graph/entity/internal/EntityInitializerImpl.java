@@ -34,13 +34,12 @@ import org.hibernate.engine.spi.SessionEventListenerManager;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
 import org.hibernate.engine.spi.Status;
-import org.hibernate.event.spi.EventManager;
-import org.hibernate.event.spi.HibernateMonitoringEvent;
+import org.hibernate.event.monitor.spi.EventMonitor;
+import org.hibernate.event.monitor.spi.DiagnosticEvent;
 import org.hibernate.event.spi.PreLoadEvent;
 import org.hibernate.event.spi.PreLoadEventListener;
 import org.hibernate.internal.log.LoggingHelper;
 import org.hibernate.internal.util.ImmutableBitSet;
-import org.hibernate.loader.ast.internal.CacheEntityLoaderHelper;
 import org.hibernate.metamodel.mapping.AttributeMapping;
 import org.hibernate.metamodel.mapping.AttributeMetadata;
 import org.hibernate.metamodel.mapping.CompositeIdentifierMapping;
@@ -87,6 +86,7 @@ import static org.hibernate.bytecode.enhance.spi.LazyPropertyInitializer.UNFETCH
 import static org.hibernate.engine.internal.ManagedTypeHelper.asPersistentAttributeInterceptable;
 import static org.hibernate.engine.internal.ManagedTypeHelper.isPersistentAttributeInterceptable;
 import static org.hibernate.internal.util.NullnessUtil.castNonNull;
+import static org.hibernate.loader.internal.CacheLoadHelper.loadFromSecondLevelCache;
 import static org.hibernate.proxy.HibernateProxy.extractLazyInitializer;
 
 /**
@@ -131,6 +131,7 @@ public class EntityInitializerImpl extends AbstractInitializer<EntityInitializer
 	private final @Nullable DomainResultAssembler<Object> rowIdAssembler;
 
 	private final DomainResultAssembler<?>[][] assemblers;
+	private final @Nullable Initializer<?>[] allInitializers;
 	private final @Nullable Initializer<?>[][] subInitializers;
 	private final @Nullable Initializer<?>[][] subInitializersForResolveFromInitialized;
 	private final @Nullable Initializer<?>[][] collectionContainingSubInitializers;
@@ -283,8 +284,10 @@ public class EntityInitializerImpl extends AbstractInitializer<EntityInitializer
 				? rowIdResult.createResultAssembler( this, creationState )
 				: null;
 
+		final int fetchableCount = entityDescriptor.getNumberOfFetchables();
 		final Collection<EntityMappingType> subMappingTypes = rootEntityDescriptor.getSubMappingTypes();
 		final DomainResultAssembler<?>[][] assemblers = new DomainResultAssembler[subMappingTypes.size() + 1][];
+		final Initializer<?>[] allInitializers = new Initializer<?>[fetchableCount];
 		final Initializer<?>[][] subInitializers = new Initializer<?>[subMappingTypes.size() + 1][];
 		final Initializer<?>[][] eagerSubInitializers = new Initializer<?>[subMappingTypes.size() + 1][];
 		final Initializer<?>[][] collectionContainingSubInitializers = new Initializer<?>[subMappingTypes.size() + 1][];
@@ -304,8 +307,7 @@ public class EntityInitializerImpl extends AbstractInitializer<EntityInitializer
 		}
 
 		boolean hasLazySubInitializers = false;
-		final int size = entityDescriptor.getNumberOfFetchables();
-		for ( int i = 0; i < size; i++ ) {
+		for ( int i = 0; i < fetchableCount; i++ ) {
 			final AttributeMapping attributeMapping = entityDescriptor.getFetchable( i ).asAttributeMapping();
 			final Fetch fetch = resultDescriptor.findFetch( attributeMapping );
 			final DomainResultAssembler<?> stateAssembler = fetch == null
@@ -318,12 +320,13 @@ public class EntityInitializerImpl extends AbstractInitializer<EntityInitializer
 
 			final Initializer<?> subInitializer = stateAssembler.getInitializer();
 			if ( subInitializer != null ) {
+				allInitializers[i] = subInitializer;
 				if ( subInitializers[subclassId] == null ) {
-					subInitializers[subclassId] = new Initializer<?>[size];
-					eagerSubInitializers[subclassId] = new Initializer<?>[size];
-					collectionContainingSubInitializers[subclassId] = new Initializer<?>[size];
-					lazySets[subclassId] = new BitSet( size );
-					maybeLazySets[subclassId] = new BitSet( size );
+					subInitializers[subclassId] = new Initializer<?>[fetchableCount];
+					eagerSubInitializers[subclassId] = new Initializer<?>[fetchableCount];
+					collectionContainingSubInitializers[subclassId] = new Initializer<?>[fetchableCount];
+					lazySets[subclassId] = new BitSet( fetchableCount );
+					maybeLazySets[subclassId] = new BitSet( fetchableCount );
 				}
 				subInitializers[subclassId][stateArrayPosition] = subInitializer;
 				if ( subInitializer.isEager() ) {
@@ -358,11 +361,11 @@ public class EntityInitializerImpl extends AbstractInitializer<EntityInitializer
 						updatableAttributeMutabilityPlans[subclassId][stateArrayPosition];
 				if ( subInitializer != null ) {
 					if ( subInitializers[subMappingType.getSubclassId()] == null ) {
-						subInitializers[subMappingType.getSubclassId()] = new Initializer<?>[size];
-						eagerSubInitializers[subMappingType.getSubclassId()] = new Initializer<?>[size];
-						collectionContainingSubInitializers[subMappingType.getSubclassId()] = new Initializer<?>[size];
-						lazySets[subMappingType.getSubclassId()] = new BitSet(size);
-						maybeLazySets[subMappingType.getSubclassId()] = new BitSet(size);
+						subInitializers[subMappingType.getSubclassId()] = new Initializer<?>[fetchableCount];
+						eagerSubInitializers[subMappingType.getSubclassId()] = new Initializer<?>[fetchableCount];
+						collectionContainingSubInitializers[subMappingType.getSubclassId()] = new Initializer<?>[fetchableCount];
+						lazySets[subMappingType.getSubclassId()] = new BitSet(fetchableCount);
+						maybeLazySets[subMappingType.getSubclassId()] = new BitSet(fetchableCount);
 					}
 					subInitializers[subMappingType.getSubclassId()][stateArrayPosition] = subInitializer;
 					eagerSubInitializers[subMappingType.getSubclassId()][stateArrayPosition] =
@@ -422,6 +425,7 @@ public class EntityInitializerImpl extends AbstractInitializer<EntityInitializer
 		}
 
 		this.assemblers = assemblers;
+		this.allInitializers = allInitializers;
 		this.subInitializers = subInitializers;
 		this.subInitializersForResolveFromInitialized =
 				rootEntityDescriptor.getBytecodeEnhancementMetadata().isEnhancedForLazyLoading()
@@ -1290,7 +1294,7 @@ public class EntityInitializerImpl extends AbstractInitializer<EntityInitializer
 	}
 
 	private Object resolveInstanceFromCache(EntityInitializerData data) {
-		return CacheEntityLoaderHelper.INSTANCE.loadFromSecondLevelCache(
+		return loadFromSecondLevelCache(
 				data.getRowProcessingState().getSession().asEventSource(),
 				null,
 				data.lockMode,
@@ -1506,10 +1510,10 @@ public class EntityInitializerImpl extends AbstractInitializer<EntityInitializer
 		// 		2) Session#clear + some form of load
 		//
 		// we need to be careful not to clobber the lock here in the cache so that it can be rolled back if need be
-		final EventManager eventManager = session.getEventManager();
+		final EventMonitor eventMonitor = session.getEventMonitor();
 		if ( persistenceContext.wasInsertedDuringTransaction( data.concreteDescriptor, data.entityKey.getIdentifier() ) ) {
 			boolean cacheContentChanged = false;
-			final HibernateMonitoringEvent cachePutEvent = eventManager.beginCachePutEvent();
+			final DiagnosticEvent cachePutEvent = eventMonitor.beginCachePutEvent();
 			try {
 				// Updating the cache entry for entities that were inserted in this transaction
 				// only makes sense for transactional caches. Other implementations no-op for #update
@@ -1530,20 +1534,20 @@ public class EntityInitializerImpl extends AbstractInitializer<EntityInitializer
 				}
 			}
 			finally {
-				eventManager.completeCachePutEvent(
+				eventMonitor.completeCachePutEvent(
 						cachePutEvent,
 						session,
 						cacheAccess,
 						data.concreteDescriptor,
 						cacheContentChanged,
-						EventManager.CacheActionDescription.ENTITY_UPDATE
+						EventMonitor.CacheActionDescription.ENTITY_UPDATE
 				);
 			}
 		}
 		else {
 			final SessionEventListenerManager eventListenerManager = session.getEventListenerManager();
 			boolean put = false;
-			final HibernateMonitoringEvent cachePutEvent = eventManager.beginCachePutEvent();
+			final DiagnosticEvent cachePutEvent = eventMonitor.beginCachePutEvent();
 			try {
 				eventListenerManager.cachePutStart();
 				put = cacheAccess.putFromLoad(
@@ -1556,13 +1560,13 @@ public class EntityInitializerImpl extends AbstractInitializer<EntityInitializer
 				);
 			}
 			finally {
-				eventManager.completeCachePutEvent(
+				eventMonitor.completeCachePutEvent(
 						cachePutEvent,
 						session,
 						cacheAccess,
 						data.concreteDescriptor,
 						put,
-						EventManager.CacheActionDescription.ENTITY_LOAD
+						EventMonitor.CacheActionDescription.ENTITY_LOAD
 				);
 				final StatisticsImplementor statistics = factory.getStatistics();
 				if ( put && statistics.isStatisticsEnabled() ) {
@@ -1722,7 +1726,7 @@ public class EntityInitializerImpl extends AbstractInitializer<EntityInitializer
 					.setPersister( data.concreteDescriptor );
 
 			session.getFactory()
-					.getFastSessionServices()
+					.getEventListenerGroups()
 					.eventListenerGroup_PRE_LOAD
 					.fireEventOnEachListener( preLoadEvent, PreLoadEventListener::onPreLoad );
 		}
@@ -1780,11 +1784,9 @@ public class EntityInitializerImpl extends AbstractInitializer<EntityInitializer
 		}
 		final EntityInitializerData entityInitializerData = (EntityInitializerData) data;
 		if ( entityInitializerData.concreteDescriptor == null ) {
-			for ( Initializer<?>[] initializers : subInitializers ) {
-				for ( Initializer<?> initializer : initializers ) {
-					if ( initializer != null ) {
-						consumer.accept( initializer, rowProcessingState );
-					}
+			for ( Initializer<?> initializer : allInitializers ) {
+				if ( initializer != null ) {
+					consumer.accept( initializer, rowProcessingState );
 				}
 			}
 		}

@@ -82,6 +82,7 @@ import org.hibernate.mapping.Table;
 import org.hibernate.mapping.UniqueKey;
 import org.hibernate.mapping.UserDefinedType;
 import org.hibernate.metamodel.mapping.EntityMappingType;
+import org.hibernate.metamodel.mapping.SqlTypedMapping;
 import org.hibernate.metamodel.spi.RuntimeModelCreationContext;
 import org.hibernate.persister.entity.EntityPersister;
 import org.hibernate.persister.entity.mutation.EntityMutationTarget;
@@ -189,6 +190,7 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalAmount;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -204,10 +206,12 @@ import java.util.regex.Pattern;
 
 import static java.lang.Math.ceil;
 import static java.lang.Math.log;
+import static java.lang.String.join;
 import static org.hibernate.cfg.AvailableSettings.NON_CONTEXTUAL_LOB_CREATION;
 import static org.hibernate.cfg.AvailableSettings.STATEMENT_BATCH_SIZE;
 import static org.hibernate.cfg.AvailableSettings.USE_GET_GENERATED_KEYS;
 import static org.hibernate.internal.util.MathHelper.ceilingPowerOfTwo;
+import static org.hibernate.internal.util.StringHelper.isEmpty;
 import static org.hibernate.internal.util.StringHelper.splitAtCommas;
 import static org.hibernate.internal.util.collections.ArrayHelper.EMPTY_STRING_ARRAY;
 import static org.hibernate.type.SqlTypes.*;
@@ -278,7 +282,8 @@ public abstract class Dialect implements ConversionContext, TypeContributor, Fun
 
 	private static final Pattern ESCAPE_CLOSING_COMMENT_PATTERN = Pattern.compile( "\\*/" );
 	private static final Pattern ESCAPE_OPENING_COMMENT_PATTERN = Pattern.compile( "/\\*" );
-	private static final Pattern QUERY_PATTERN = Pattern.compile( "^\\s*(select\\b.+?\\bfrom\\b.+?)(\\b(where|join)\\b.+?)$" );
+	private static final Pattern QUERY_PATTERN = Pattern.compile(
+		"^\\s*(select\\b.+?\\bfrom\\b.+?)(\\b(?:natural )?(?:left |right |full )?(?:inner |outer |cross )?join.+?\\b)?(\\bwhere\\b.+?)$");
 
 	private static final CoreMessageLogger LOG = Logger.getMessageLogger( MethodHandles.lookup(), CoreMessageLogger.class, Dialect.class.getName() );
 
@@ -838,11 +843,17 @@ public abstract class Dialect implements ConversionContext, TypeContributor, Fun
 	}
 
 	/**
-	 * Generate a check condition for column with the given set of values.
+	 * Generate a SQL {@code check} condition for the given column,
+	 * constraining to the given values.
 	 *
-	 * @apiNote Only supports TINYINT, SMALLINT and (VAR)CHAR
+	 * @return a SQL expression that will occur in a {@code check} constraint
+	 *
+	 * @apiNote Only supports {@code TINYINT}, {@code SMALLINT}, {@code CHAR},
+	 *          and {@code VARCHAR}
+	 *
+	 * @since 7.0
 	 */
-	public String getCheckCondition(String columnName, Set<?> valueSet, JdbcType jdbcType) {
+	public String getCheckCondition(String columnName, Collection<?> valueSet, JdbcType jdbcType) {
 		final boolean isCharacterJdbcType = isCharacterType( jdbcType.getJdbcTypeCode() );
 		assert isCharacterJdbcType || isIntegral( jdbcType.getJdbcTypeCode() );
 
@@ -855,11 +866,12 @@ public abstract class Dialect implements ConversionContext, TypeContributor, Fun
 				nullIsValid = true;
 				continue;
 			}
+			check.append( separator );
 			if ( isCharacterJdbcType ) {
-				check.append( separator ).append('\'').append( value ).append('\'');
+				check.append('\'').append( value ).append('\'');
 			}
 			else {
-				check.append( separator ).append( value );
+				check.append( value );
 			}
 			separator = ",";
 		}
@@ -1963,7 +1975,7 @@ public abstract class Dialect implements ConversionContext, TypeContributor, Fun
 			if ( original == null && target == null ) {
 				return null;
 			}
-			final JdbcServices jdbcServices = session.getFactory().getFastSessionServices().jdbcServices;
+			final JdbcServices jdbcServices = session.getFactory().getJdbcServices();
 			try {
 				final LobCreator lobCreator = jdbcServices.getLobCreator( session );
 				return original == null
@@ -1980,7 +1992,7 @@ public abstract class Dialect implements ConversionContext, TypeContributor, Fun
 			if ( original == null && target == null ) {
 				return null;
 			}
-			final JdbcServices jdbcServices = session.getFactory().getFastSessionServices().jdbcServices;
+			final JdbcServices jdbcServices = session.getFactory().getJdbcServices();
 			try {
 				final LobCreator lobCreator = jdbcServices.getLobCreator( session );
 				return original == null
@@ -1997,7 +2009,7 @@ public abstract class Dialect implements ConversionContext, TypeContributor, Fun
 			if ( original == null && target == null ) {
 				return null;
 			}
-			final JdbcServices jdbcServices = session.getFactory().getFastSessionServices().jdbcServices;
+			final JdbcServices jdbcServices = session.getFactory().getJdbcServices();
 			try {
 				final LobCreator lobCreator = jdbcServices.getLobCreator( session );
 				return original == null
@@ -2727,13 +2739,13 @@ public abstract class Dialect implements ConversionContext, TypeContributor, Fun
 		res.append( " add constraint " )
 				.append( quote( constraintName ) )
 				.append( " foreign key (" )
-				.append( String.join( ", ", foreignKey ) )
+				.append( join( ", ", foreignKey ) )
 				.append( ") references " )
 				.append( referencedTable );
 
 		if ( !referencesPrimaryKey ) {
 			res.append( " (" )
-					.append( String.join( ", ", primaryKey ) )
+					.append( join( ", ", primaryKey ) )
 					.append( ')' );
 		}
 
@@ -3075,9 +3087,29 @@ public abstract class Dialect implements ConversionContext, TypeContributor, Fun
 	 * @param sqlType The {@link Types} type code.
 	 * @param typeConfiguration The type configuration
 	 * @return The appropriate select clause value fragment.
+	 * @deprecated Use {@link #getSelectClauseNullString(SqlTypedMapping, TypeConfiguration)} instead
 	 */
+	@Deprecated(forRemoval = true)
 	public String getSelectClauseNullString(int sqlType, TypeConfiguration typeConfiguration) {
 		return "null";
+	}
+
+	/**
+	 * Given a type mapping, return the expression
+	 * for a literal null value of that type, to use in a {@code select}
+	 * clause.
+	 * <p>
+	 * The {@code select} query will be an element of a {@code UNION}
+	 * or {@code UNION ALL}.
+	 *
+	 * @implNote Some databases require an explicit type cast.
+	 *
+	 * @param sqlTypeMapping The type mapping.
+	 * @param typeConfiguration The type configuration
+	 * @return The appropriate select clause value fragment.
+	 */
+	public String getSelectClauseNullString(SqlTypedMapping sqlTypeMapping, TypeConfiguration typeConfiguration) {
+		return getSelectClauseNullString( sqlTypeMapping.getJdbcMapping().getJdbcType().getDdlTypeCode(), typeConfiguration );
 	}
 
 	/**
@@ -4124,7 +4156,7 @@ public abstract class Dialect implements ConversionContext, TypeContributor, Fun
 	 *         {@code false} (the default) indicates that locking
 	 *                      should be applied to the main SQL statement.
 	 *
-	 * @since 5.2
+	 * @since 6.0
 	 */
 	public boolean useFollowOnLocking(String sql, QueryOptions queryOptions) {
 		return false;
@@ -4152,8 +4184,13 @@ public abstract class Dialect implements ConversionContext, TypeContributor, Fun
 	 * @return The modified SQL
 	 */
 	public String getQueryHintString(String query, List<String> hintList) {
-		final String hints = String.join( ", ", hintList );
-		return StringHelper.isEmpty( hints ) ? query : getQueryHintString( query, hints);
+		if ( hintList.isEmpty() ) {
+			return query;
+		}
+		else {
+			final String hints = join( ", ", hintList );
+			return isEmpty( hints ) ? query : getQueryHintString( query, hints );
+		}
 	}
 
 	/**
@@ -4736,12 +4773,12 @@ public abstract class Dialect implements ConversionContext, TypeContributor, Fun
 	}
 
 	/**
-	 * Modify the SQL, adding hints or comments, if necessary
+	 * Modify the SQL, adding hints or comments, if necessary.
+	 *
+	 * @see #getQueryHintString(String,List)
+	 * @see #prependComment
 	 */
-	public String addSqlHintOrComment(
-			String sql,
-			QueryOptions queryOptions,
-			boolean commentsEnabled) {
+	public String addSqlHintOrComment(String sql, QueryOptions queryOptions, boolean commentsEnabled) {
 		// Keep this here, rather than moving to Select.
 		// Some Dialects may need the hint to be appended to the very end or beginning
 		// of the finalized SQL statement, so wait until everything is processed.
@@ -4755,7 +4792,7 @@ public abstract class Dialect implements ConversionContext, TypeContributor, Fun
 	}
 
 	/**
-	 * Adds an INDEX query hint as follows:
+	 * Adds an {@code INDEX} query hint as follows:
 	 *
 	 * <pre>
 	 * SELECT *
@@ -4763,18 +4800,17 @@ public abstract class Dialect implements ConversionContext, TypeContributor, Fun
 	 * USE INDEX (hint1, hint2)
 	 * WHERE X=1
 	 * </pre>
+	 *
+	 * @since 7.0
 	 */
-	public static String addQueryHints(String query, String hints) {
-		Matcher matcher = QUERY_PATTERN.matcher( query );
+	public static String addUseIndexQueryHint(String query, String hints) {
+		final Matcher matcher = QUERY_PATTERN.matcher( query );
 		if ( matcher.matches() && matcher.groupCount() > 1 ) {
-			String startToken = matcher.group( 1 );
-			String endToken = matcher.group( 2 );
-
-			return startToken +
-					" use index (" +
-					hints +
-					") " +
-					endToken;
+			final String startToken = matcher.group(1);
+			// Null if there is no join in the query
+			final String joinToken = Objects.toString( matcher.group(2), "" );
+			final String endToken = matcher.group(3);
+			return startToken + " use index (" + hints + ") " + joinToken + endToken;
 		}
 		else {
 			return query;

@@ -9,6 +9,7 @@ import org.hibernate.collection.spi.PersistentCollection;
 import org.hibernate.engine.internal.ForeignKeys;
 import org.hibernate.engine.internal.NonNullableTransientDependencies;
 import org.hibernate.engine.internal.Nullability;
+import org.hibernate.engine.internal.Nullability.NullabilityCheckType;
 import org.hibernate.engine.spi.CachedNaturalIdValueSource;
 import org.hibernate.engine.spi.CollectionKey;
 import org.hibernate.engine.spi.EntityEntry;
@@ -121,7 +122,8 @@ public abstract class AbstractEntityInsertAction extends EntityAction {
 		if ( !areTransientReferencesNullified ) {
 			new ForeignKeys.Nullifier( getInstance(), false, isEarlyInsert(), getSession(), getPersister() )
 					.nullifyTransientReferences( getState() );
-			new Nullability( getSession() ).checkNullability( getState(), getPersister(), false );
+			new Nullability( getSession(), NullabilityCheckType.CREATE )
+					.checkNullability( getState(), getPersister() );
 			areTransientReferencesNullified = true;
 		}
 	}
@@ -213,7 +215,7 @@ public abstract class AbstractEntityInsertAction extends EntityAction {
 			PersistenceContext persistenceContext) {
 		if ( o instanceof PersistentCollection ) {
 			final CollectionPersister collectionPersister = pluralAttributeMapping.getCollectionDescriptor();
-			final Object key = ( (AbstractEntityPersister) getPersister() ).getCollectionKey(
+			final Object key = AbstractEntityPersister.getCollectionKey(
 					collectionPersister,
 					getInstance(),
 					persistenceContext.getEntry( getInstance() ),

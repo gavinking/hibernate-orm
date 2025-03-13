@@ -4,9 +4,9 @@
  */
 package org.hibernate.metamodel.internal;
 
-import org.hibernate.engine.spi.SessionFactoryImplementor;
-import org.hibernate.internal.util.ReflectHelper;
 import org.hibernate.metamodel.spi.Instantiator;
+
+import static org.hibernate.internal.util.ReflectHelper.isAbstractClass;
 
 /**
  * Base support for POJO-based instantiation
@@ -19,7 +19,7 @@ public abstract class AbstractPojoInstantiator implements Instantiator {
 
 	public AbstractPojoInstantiator(Class<?> mappedPojoClass) {
 		this.mappedPojoClass = mappedPojoClass;
-		this.isAbstract = ReflectHelper.isAbstractClass( mappedPojoClass );
+		this.isAbstract = isAbstractClass( mappedPojoClass );
 	}
 
 	public Class<?> getMappedPojoClass() {
@@ -31,12 +31,12 @@ public abstract class AbstractPojoInstantiator implements Instantiator {
 	}
 
 	@Override
-	public boolean isInstance(Object object, SessionFactoryImplementor sessionFactory) {
+	public boolean isInstance(Object object) {
 		return mappedPojoClass.isInstance( object );
 	}
 
 	@Override
-	public boolean isSameClass(Object object, SessionFactoryImplementor sessionFactory) {
+	public boolean isSameClass(Object object) {
 		return object.getClass() == mappedPojoClass;
 	}
 

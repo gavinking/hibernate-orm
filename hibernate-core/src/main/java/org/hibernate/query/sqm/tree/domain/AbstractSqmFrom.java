@@ -793,9 +793,11 @@ public abstract class AbstractSqmFrom<O,T> extends AbstractSqmPath<T> implements
 			SqmPathSource<A> joinedPathSource,
 			SqmJoinType joinType,
 			boolean fetched) {
-		final SqmAttributeJoin<T, A> compatibleFetchJoin = findCompatibleFetchJoin( this, joinedPathSource, joinType );
-		if ( compatibleFetchJoin != null ) {
-			return compatibleFetchJoin;
+		if ( fetched ) {
+			final SqmAttributeJoin<T, A> compatibleFetchJoin = findCompatibleFetchJoin( this, joinedPathSource, joinType );
+			if ( compatibleFetchJoin != null ) {
+				return compatibleFetchJoin;
+			}
 		}
 
 		final SqmAttributeJoin<T, A> sqmJoin;
@@ -959,13 +961,13 @@ public abstract class AbstractSqmFrom<O,T> extends AbstractSqmPath<T> implements
 	}
 
 	@Override
-	public void appendHqlString(StringBuilder sb) {
+	public void appendHqlString(StringBuilder hql) {
 		if ( alias == null ) {
 			// If we don't have an alias, this is the best we can do to at least ensure uniqueness
-			sb.append( "alias_" ).append( System.identityHashCode( this ) );
+			hql.append( "alias_" ).append( System.identityHashCode( this ) );
 		}
 		else {
-			sb.append( alias );
+			hql.append( alias );
 		}
 	}
 

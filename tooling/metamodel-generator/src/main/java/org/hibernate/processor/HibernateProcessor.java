@@ -86,7 +86,7 @@ import static org.hibernate.processor.util.TypeUtils.containsAnnotation;
 import static org.hibernate.processor.util.TypeUtils.getAnnotationMirror;
 import static org.hibernate.processor.util.TypeUtils.getAnnotationValue;
 import static org.hibernate.processor.util.TypeUtils.hasAnnotation;
-import static org.hibernate.processor.util.TypeUtils.isClassOrRecordType;
+import static org.hibernate.processor.util.TypeUtils.isClassRecordOrInterfaceType;
 import static org.hibernate.processor.util.TypeUtils.isMemberType;
 
 /**
@@ -201,6 +201,7 @@ public class HibernateProcessor extends AbstractProcessor {
 
 	private static final boolean ALLOW_OTHER_PROCESSORS_TO_CLAIM_ANNOTATIONS = false;
 
+	// dupe of ProcessorSessionFactory.ENTITY_INDEX for reasons of modularity
 	public static final String ENTITY_INDEX = "entity.index";
 
 	private Context context;
@@ -242,6 +243,9 @@ public class HibernateProcessor extends AbstractProcessor {
 		final PackageElement quarkusOrmPackage =
 				context.getProcessingEnvironment().getElementUtils()
 						.getPackageElement( "io.quarkus.hibernate.orm" );
+		final PackageElement dataEventPackage =
+				context.getProcessingEnvironment().getElementUtils()
+						.getPackageElement( "jakarta.data.event" );
 
 		PackageElement quarkusOrmPanachePackage =
 				context.getProcessingEnvironment().getElementUtils()
@@ -264,6 +268,7 @@ public class HibernateProcessor extends AbstractProcessor {
 		context.setAddGeneratedAnnotation( packagePresent(jakartaAnnotationPackage) );
 		context.setAddDependentAnnotation( packagePresent(jakartaContextPackage) );
 		context.setAddTransactionScopedAnnotation( packagePresent(jakartaTransactionsPackage) );
+		context.setDataEventPackageAvailable( packagePresent(dataEventPackage) );
 		context.setQuarkusInjection( packagePresent(quarkusOrmPackage) );
 		context.setUsesQuarkusOrm( packagePresent(quarkusOrmPanachePackage) );
 		context.setUsesQuarkusReactive( packagePresent(quarkusReactivePanachePackage) );
@@ -364,7 +369,8 @@ public class HibernateProcessor extends AbstractProcessor {
 			final TypeElement typeElement = context.getElementUtils().getTypeElement( elementName );
 			try {
 				final AnnotationMetaEntity metaEntity =
-						AnnotationMetaEntity.create( typeElement, context );
+						AnnotationMetaEntity.create( typeElement, context,
+								parentMetadata( typeElement, context::getMetaEntity ) );
 				context.addMetaAuxiliary( metaEntity.getQualifiedName(), metaEntity );
 				context.removeElementToRedo( elementName );
 			}
@@ -405,7 +411,8 @@ public class HibernateProcessor extends AbstractProcessor {
 							|| provider.getValue().toString().equalsIgnoreCase("hibernate") ) {
 						context.logMessage( Diagnostic.Kind.OTHER, "Processing repository class '" + element + "'" );
 						final AnnotationMetaEntity metaEntity =
-								AnnotationMetaEntity.create( typeElement, context );
+								AnnotationMetaEntity.create( typeElement, context,
+										parentMetadata( parent, context::getMetaEntity ) );
 						if ( metaEntity.isInitialized() ) {
 							context.addMetaAuxiliary( metaEntity.getQualifiedName(), metaEntity );
 						}
@@ -417,7 +424,8 @@ public class HibernateProcessor extends AbstractProcessor {
 						if ( hasAnnotation( member, HQL, SQL, FIND ) ) {
 							context.logMessage( Diagnostic.Kind.OTHER, "Processing annotated class '" + element + "'" );
 							final AnnotationMetaEntity metaEntity =
-									AnnotationMetaEntity.create( typeElement, context );
+									AnnotationMetaEntity.create( typeElement, context,
+											parentMetadata( parent, context::getMetaEntity ) );
 							context.addMetaAuxiliary( metaEntity.getQualifiedName(), metaEntity );
 							break;
 						}
@@ -437,9 +445,9 @@ public class HibernateProcessor extends AbstractProcessor {
 					}
 				}
 			}
-			if ( isClassOrRecordType( element ) ) {
+			if ( isClassRecordOrInterfaceType( element ) ) {
 				for ( final Element child : element.getEnclosedElements() ) {
-					if ( isClassOrRecordType( child ) ) {
+					if ( isClassRecordOrInterfaceType( child ) ) {
 						processElement( child, element );
 					}
 				}
@@ -476,7 +484,8 @@ public class HibernateProcessor extends AbstractProcessor {
 	private void createMetaModelClasses() {
 
 		for ( Metamodel aux : context.getMetaAuxiliaries() ) {
-			if ( !context.isAlreadyGenerated(aux) ) {
+			if ( !context.isAlreadyGenerated(aux)
+				&& !isClassRecordOrInterfaceType( aux.getElement().getEnclosingElement() ) ) {
 				context.logMessage( Diagnostic.Kind.OTHER,
 						"Writing metamodel for auxiliary '" + aux + "'" );
 				ClassWriter.writeFile( aux, context );
@@ -618,7 +627,7 @@ public class HibernateProcessor extends AbstractProcessor {
 	}
 
 	private void handleRootElementAnnotationMirrors(final Element element, @Nullable Element parent) {
-		if ( isClassOrRecordType( element ) ) {
+		if ( isClassRecordOrInterfaceType( element ) ) {
 			if ( isEntityOrEmbeddable( element ) ) {
 				final TypeElement typeElement = (TypeElement) element;
 				indexEntityName( typeElement );
@@ -736,7 +745,8 @@ public class HibernateProcessor extends AbstractProcessor {
 	private void handleRootElementAuxiliaryAnnotationMirrors(final Element element) {
 		if ( element instanceof TypeElement ) {
 			final AnnotationMetaEntity metaEntity =
-					AnnotationMetaEntity.create( (TypeElement) element, context );
+					AnnotationMetaEntity.create( (TypeElement) element, context,
+							parentMetadata( element.getEnclosingElement(), context::getMetaEntity ) );
 			context.addMetaAuxiliary( metaEntity.getQualifiedName(), metaEntity );
 		}
 		else if ( element instanceof PackageElement ) {

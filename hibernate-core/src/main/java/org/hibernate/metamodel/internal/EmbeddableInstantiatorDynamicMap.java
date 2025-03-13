@@ -7,7 +7,6 @@ package org.hibernate.metamodel.internal;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.mapping.Component;
 import org.hibernate.metamodel.mapping.EmbeddableMappingType;
 import org.hibernate.metamodel.spi.ValueAccess;
@@ -30,15 +29,13 @@ public class EmbeddableInstantiatorDynamicMap
 	}
 
 	@Override
-	public Object instantiate(ValueAccess valuesAccess, SessionFactoryImplementor sessionFactory) {
+	public Object instantiate(ValueAccess valuesAccess) {
 		final Map<?,?> dataMap = generateDataMap();
-
-		Object[] values = valuesAccess == null ? null : valuesAccess.getValues();
+		final Object[] values = valuesAccess == null ? null : valuesAccess.getValues();
 		if ( values != null ) {
 			final EmbeddableMappingType mappingType = runtimeDescriptorAccess.get();
 			mappingType.setValues( dataMap, values );
 		}
-
 		return dataMap;
 	}
 }

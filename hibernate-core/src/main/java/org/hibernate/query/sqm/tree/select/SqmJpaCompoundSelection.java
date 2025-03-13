@@ -56,11 +56,11 @@ public class SqmJpaCompoundSelection<T>
 	//			can support using tuples in other clauses.  If we keep the Easy way is to add a switch in creation of these
 	//			whether `SqmJpaCompoundSelection` or `SqmTuple` is used based on `JpaCompliance#isJpaQueryComplianceEnabled`
 
-	private final List<SqmSelectableNode<?>> selectableNodes;
+	private final List<? extends SqmSelectableNode<?>> selectableNodes;
 	private final JavaType<T> javaType;
 
 	public SqmJpaCompoundSelection(
-			List<SqmSelectableNode<?>> selectableNodes,
+			List<? extends SqmSelectableNode<?>> selectableNodes,
 			JavaType<T> javaType,
 			NodeBuilder criteriaBuilder) {
 		super( null, criteriaBuilder );
@@ -111,7 +111,7 @@ public class SqmJpaCompoundSelection<T>
 	}
 
 	@Override
-	public List<SqmSelectableNode<?>> getSelectionItems() {
+	public List<? extends SqmSelectableNode<?>> getSelectionItems() {
 		return selectableNodes;
 	}
 
@@ -136,11 +136,11 @@ public class SqmJpaCompoundSelection<T>
 	}
 
 	@Override
-	public void appendHqlString(StringBuilder sb) {
-		selectableNodes.get( 0 ).appendHqlString( sb );
+	public void appendHqlString(StringBuilder hql) {
+		selectableNodes.get( 0 ).appendHqlString( hql );
 		for ( int i = 1; i < selectableNodes.size(); i++ ) {
-			sb.append(", ");
-			selectableNodes.get( i ).appendHqlString( sb );
+			hql.append(", ");
+			selectableNodes.get( i ).appendHqlString( hql );
 		}
 	}
 

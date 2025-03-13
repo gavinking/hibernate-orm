@@ -12,9 +12,7 @@ import org.hibernate.AssertionFailure;
 import org.hibernate.HibernateException;
 import org.hibernate.MappingException;
 import org.hibernate.bytecode.enhance.spi.interceptor.EnhancementAsProxyLazinessInterceptor;
-import org.hibernate.engine.internal.ForeignKeys;
 import org.hibernate.engine.spi.EntityUniqueKey;
-import org.hibernate.engine.spi.Mapping;
 import org.hibernate.engine.spi.PersistenceContext;
 import org.hibernate.engine.spi.PersistentAttributeInterceptor;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
@@ -25,7 +23,9 @@ import org.hibernate.persister.entity.Joinable;
 import org.hibernate.proxy.LazyInitializer;
 import org.hibernate.type.spi.TypeConfiguration;
 
+import static org.hibernate.engine.internal.ForeignKeys.getEntityIdentifier;
 import static org.hibernate.engine.internal.ForeignKeys.getEntityIdentifierIfNotUnsaved;
+import static org.hibernate.engine.internal.ForeignKeys.isTransient;
 import static org.hibernate.engine.internal.ManagedTypeHelper.asPersistentAttributeInterceptable;
 import static org.hibernate.engine.internal.ManagedTypeHelper.isPersistentAttributeInterceptable;
 import static org.hibernate.proxy.HibernateProxy.extractLazyInitializer;
@@ -228,7 +228,7 @@ public abstract class EntityType extends AbstractType implements AssociationType
 	public void nullSafeSet(PreparedStatement st, Object value, int index, boolean[] settable, SharedSessionContractImplementor session)
 			throws SQLException {
 		if ( settable.length > 0 ) {
-			requireIdentifierOrUniqueKeyType( session.getFactory() )
+			requireIdentifierOrUniqueKeyType( session.getFactory().getRuntimeMetamodels() )
 					.nullSafeSet( st, getIdentifier( value, session ), index, settable, session );
 		}
 	}
@@ -236,7 +236,7 @@ public abstract class EntityType extends AbstractType implements AssociationType
 	@Override
 	public void nullSafeSet(PreparedStatement st, Object value, int index, SharedSessionContractImplementor session)
 			throws SQLException {
-		requireIdentifierOrUniqueKeyType( session.getFactory() )
+		requireIdentifierOrUniqueKeyType( session.getFactory().getRuntimeMetamodels() )
 				.nullSafeSet( st, getIdentifier( value, session ), index, session );
 	}
 
@@ -270,12 +270,13 @@ public abstract class EntityType extends AbstractType implements AssociationType
 			// x is not null, but y is, return that x is "greater"
 			return 1;
 		}
-
-		// At this point we know both are non-null.
-		final Object xId = extractIdentifier( x, factory );
-		final Object yId = extractIdentifier( y, factory );
-
-		return getIdentifierType( factory ).compare( xId, yId );
+		else {
+			// At this point we know both are non-null.
+			final Object xId = extractIdentifier( x, factory );
+			final Object yId = extractIdentifier( y, factory );
+			return getIdentifierType( factory.getRuntimeMetamodels() )
+					.compare( xId, yId, factory );
+		}
 	}
 
 	private Object extractIdentifier(Object entity, SessionFactoryImplementor factory) {
@@ -308,33 +309,32 @@ public abstract class EntityType extends AbstractType implements AssociationType
 			if ( original == target ) {
 				return target;
 			}
-			if ( session.getContextEntityIdentifier( original ) == null &&
-					ForeignKeys.isTransient( associatedEntityName, original, Boolean.FALSE, session ) ) {
-				// original is transient; it is possible that original is a "managed" entity that has
-				// not been made persistent yet, so check if copyCache contains original as a "managed" value
-				// that corresponds with some "merge" value.
+			if ( session.getContextEntityIdentifier( original ) == null
+					&& isTransient( associatedEntityName, original, Boolean.FALSE, session ) ) {
+				// original is transient; it's possible that original is a "managed" entity
+				// that has not been made persistent yet, so check if copyCache contains
+				// original as a "managed" value that corresponds with some "merge" value
 				if ( copyCache.containsValue( original ) ) {
 					return original;
 				}
 				else {
 					// the transient entity is not "managed"; add the merge/managed pair to copyCache
-					final Object copy = session.getEntityPersister( associatedEntityName, original )
-							.instantiate( null, session );
+					final Object copy =
+							session.getEntityPersister( associatedEntityName, original )
+									.instantiate( null, session );
 					copyCache.put( original, copy );
 					return copy;
 				}
 			}
 			else {
-				Object id = getIdentifier( original, session );
+				final Object id = getIdentifierEvenIfTransient( original, session );
 				if ( id == null ) {
-					throw new AssertionFailure(
-							"non-transient entity has a null id: " + original.getClass()
-									.getName()
-					);
+					throw new AssertionFailure( "non-transient entity has a null id: " + original.getClass().getName() );
 				}
-				id = getIdentifierOrUniqueKeyType( session.getFactory() )
-						.replace( id, null, session, owner, copyCache );
-				return resolve( id, session, owner );
+				final Object replaced =
+						getIdentifierOrUniqueKeyType( session.getFactory().getRuntimeMetamodels() )
+								.replace( id, null, session, owner, copyCache );
+				return resolve( replaced, session, owner );
 			}
 		}
 	}
@@ -358,24 +358,26 @@ public abstract class EntityType extends AbstractType implements AssociationType
 		if ( x == null || y == null ) {
 			return x == y;
 		}
-		if ( x == y ) {
+		else if ( x == y ) {
 			return true;
 		}
-
-		final EntityPersister persister = getAssociatedEntityPersister( factory );
-		if ( isReferenceToPrimaryKey() ) {
-			final Object xid = getId( x, persister );
-			final Object yid = getId( y, persister );
-			// Check for reference equality first as the type-specific checks by IdentifierType are sometimes non-trivial
-			return xid == yid || persister.getIdentifierType().isEqual( xid, yid, factory );
-		}
 		else {
-			assert uniqueKeyPropertyName != null;
-			final Type keyType = persister.getPropertyType( uniqueKeyPropertyName );
-			final Object xUniqueKey = getUniqueKey( x, keyType, persister );
-			final Object yUniqueKey = getUniqueKey( y, keyType, persister );
-			return xUniqueKey == yUniqueKey
-				|| keyType.isEqual( xUniqueKey, yUniqueKey, factory );
+			final EntityPersister persister = getAssociatedEntityPersister( factory );
+			if ( isReferenceToPrimaryKey() ) {
+				final Object xid = getId( x, persister );
+				final Object yid = getId( y, persister );
+				// Check for reference equality first as the type-specific
+				// checks by IdentifierType are sometimes non-trivial
+				return xid == yid || persister.getIdentifierType().isEqual( xid, yid, factory );
+			}
+			else {
+				assert uniqueKeyPropertyName != null;
+				final Type keyType = persister.getPropertyType( uniqueKeyPropertyName );
+				final Object xUniqueKey = getUniqueKey( x, keyType, persister );
+				final Object yUniqueKey = getUniqueKey( y, keyType, persister );
+				return xUniqueKey == yUniqueKey
+					|| keyType.isEqual( xUniqueKey, yUniqueKey, factory );
+			}
 		}
 	}
 
@@ -390,15 +392,12 @@ public abstract class EntityType extends AbstractType implements AssociationType
 		if ( lazyInitializer != null ) {
 			return lazyInitializer.getInternalIdentifier();
 		}
+		else if ( persister.getMappedClass().isInstance( entity ) ) {
+			return persister.getIdentifier( entity );
+		}
 		else {
-			final Class<?> mappedClass = persister.getMappedClass();
-			if ( mappedClass.isInstance( entity ) ) {
-				return persister.getIdentifier( entity );
-			}
-			else {
-				//JPA 2 case where @IdClass contains the id and not the associated entity
-				return entity;
-			}
+			//JPA 2 case where @IdClass contains the id and not the associated entity
+			return entity;
 		}
 	}
 
@@ -408,7 +407,7 @@ public abstract class EntityType extends AbstractType implements AssociationType
 	protected Object resolve(Object value, SharedSessionContractImplementor session, Object owner) {
 		if ( value != null && !isNull( owner, session ) ) {
 			if ( isReferenceToPrimaryKey() ) {
-				return resolveIdentifier( value, session, null );
+				return resolveIdentifier( value, session );
 			}
 			else if ( uniqueKeyPropertyName != null ) {
 				return loadByUniqueKey( getAssociatedEntityName(), uniqueKeyPropertyName, value, session );
@@ -416,18 +415,6 @@ public abstract class EntityType extends AbstractType implements AssociationType
 		}
 
 		return null;
-	}
-
-	/**
-	 * Would an entity be eagerly loaded given the value provided for {@code overridingEager}?
-	 *
-	 * @param overridingEager can override eager from the mapping.
-	 *
-	 * @return If {@code overridingEager} is null, then it does not override.
-	 *		 If true or false then it overrides the mapping value.
-	 */
-	public boolean isEager(Boolean overridingEager) {
-		return overridingEager != null ? overridingEager : this.eager;
 	}
 
 	public EntityPersister getAssociatedEntityPersister(final SessionFactoryImplementor factory) {
@@ -446,6 +433,19 @@ public abstract class EntityType extends AbstractType implements AssociationType
 		}
 	}
 
+	protected final Object getIdentifierEvenIfTransient(Object value, SharedSessionContractImplementor session)
+			throws HibernateException {
+		if ( isReferenceToIdentifierProperty() ) {
+			return getEntityIdentifier( getAssociatedEntityName(), value, session ); //tolerates nulls and transients
+		}
+		else if ( value == null ) {
+			return null;
+		}
+		else {
+			return getUniqueKey( value, session );
+		}
+	}
+
 	protected final Object getIdentifier(Object value, SharedSessionContractImplementor session)
 			throws HibernateException {
 		if ( isReferenceToIdentifierProperty() ) {
@@ -455,33 +455,37 @@ public abstract class EntityType extends AbstractType implements AssociationType
 			return null;
 		}
 		else {
-			final LazyInitializer lazyInitializer = extractLazyInitializer( value );
-			if ( lazyInitializer != null ) {
-				// If the value is a Proxy and the property access is field, the value returned by
-				// attributeMapping.getAttributeMetadata().getPropertyAccess().getGetter().get( object )
-				// is always null except for the id, we need the to use the proxy implementation to
-				// extract the property value.
-				value = lazyInitializer.getImplementation();
-			}
-			else if ( isPersistentAttributeInterceptable( value ) ) {
-				// If the value is an instance of PersistentAttributeInterceptable, and it is
-				// not initialized, we need to force initialization the get the property value
-				final PersistentAttributeInterceptor interceptor =
-						asPersistentAttributeInterceptable( value ).$$_hibernate_getInterceptor();
-				if ( interceptor instanceof EnhancementAsProxyLazinessInterceptor lazinessInterceptor ) {
-					lazinessInterceptor.forceInitialize( value, null );
-				}
-			}
-			final EntityPersister entityPersister = getAssociatedEntityPersister( session.getFactory() );
-			final Object propertyValue = entityPersister.getPropertyValue( value, uniqueKeyPropertyName );
-			// We now have the value of the property-ref we reference.  However,
-			// we need to dig a little deeper, as that property might also be
-			// an entity type, in which case we need to resolve its identifier
-			final Type type = entityPersister.getPropertyType( uniqueKeyPropertyName );
-			return type instanceof EntityType entityType
-					? entityType.getIdentifier( propertyValue, session )
-					: propertyValue;
+			return getUniqueKey( value, session );
 		}
+	}
+
+	private Object getUniqueKey(Object value, SharedSessionContractImplementor session) {
+		final LazyInitializer lazyInitializer = extractLazyInitializer( value );
+		if ( lazyInitializer != null ) {
+			// If the value is a Proxy and the property access is field, the value returned by
+			// attributeMapping.getAttributeMetadata().getPropertyAccess().getGetter().get( object )
+			// is always null except for the id, we need the to use the proxy implementation to
+			// extract the property value.
+			value = lazyInitializer.getImplementation();
+		}
+		else if ( isPersistentAttributeInterceptable( value ) ) {
+			// If the value is an instance of PersistentAttributeInterceptable, and it is
+			// not initialized, we need to force initialization the get the property value
+			final PersistentAttributeInterceptor interceptor =
+					asPersistentAttributeInterceptable( value ).$$_hibernate_getInterceptor();
+			if ( interceptor instanceof EnhancementAsProxyLazinessInterceptor lazinessInterceptor ) {
+				lazinessInterceptor.forceInitialize( value, null );
+			}
+		}
+		final EntityPersister entityPersister = getAssociatedEntityPersister( session.getFactory() );
+		final Object propertyValue = entityPersister.getPropertyValue( value, uniqueKeyPropertyName );
+		// We now have the value of the property-ref we reference. However,
+		// we need to dig a little deeper, as that property might also be
+		// an entity type, in which case we need to resolve its identifier
+		final Type type = entityPersister.getPropertyType( uniqueKeyPropertyName );
+		return type instanceof EntityType entityType
+				? entityType.getIdentifierEvenIfTransient( propertyValue, session )
+				: propertyValue;
 	}
 
 	protected final Object getIdentifier(Object value, SessionFactoryImplementor sessionFactory)
@@ -562,19 +566,6 @@ public abstract class EntityType extends AbstractType implements AssociationType
 		return isOneToOne();
 	}
 
-	/**
-	 * Convenience method to locate the identifier type of the associated entity.
-	 *
-	 * @param factory The mappings...
-	 *
-	 * @return The identifier type
-	 * @deprecated use {@link #getIdentifierType(MappingContext)}
-	 */
-	@Deprecated(since = "7.0")
-	Type getIdentifierType(final Mapping factory) {
-		return getIdentifierType( (MappingContext) factory );
-	}
-
 	Type getIdentifierType(final MappingContext mappingContext) {
 		final Type type = associatedIdentifierType;
 		//The following branch implements a simple lazy-initialization, but rather than the canonical
@@ -599,30 +590,12 @@ public abstract class EntityType extends AbstractType implements AssociationType
 	Type getIdentifierType(final SharedSessionContractImplementor session) {
 		final Type type = associatedIdentifierType;
 		if ( type == null ) {
-			associatedIdentifierType = getIdentifierType( session.getFactory() );
+			associatedIdentifierType = getIdentifierType( session.getFactory().getRuntimeMetamodels() );
 			return associatedIdentifierType;
 		}
 		else {
 			return type;
 		}
-	}
-
-	/**
-	 * Determine the type of either (1) the identifier if we reference the
-	 * associated entity's PK or (2) the unique key to which we refer (i.e.
-	 * the property-ref).
-	 *
-	 * @param factory The mappings...
-	 *
-	 * @return The appropriate type.
-	 *
-	 * @throws MappingException Generally, if unable to resolve the associated entity name
-	 * or unique key property name.
-	 * @deprecated use {@link  #getIdentifierOrUniqueKeyType(MappingContext)}
-	 */
-	@Deprecated(since = "7.0")
-	public final Type getIdentifierOrUniqueKeyType(Mapping factory) throws MappingException {
-		return getIdentifierOrUniqueKeyType( (MappingContext) factory );
 	}
 
 	/**
@@ -650,24 +623,6 @@ public abstract class EntityType extends AbstractType implements AssociationType
 					? entityType.getIdentifierOrUniqueKeyType( mappingContext )
 					: type;
 		}
-	}
-
-	/**
-	 * The name of the property on the associated entity to which our FK
-	 * refers
-	 *
-	 * @param factory The mappings...
-	 *
-	 * @return The appropriate property name.
-	 *
-	 * @throws MappingException Generally, if unable to resolve the associated entity name
-	 *
-	 * @deprecated No longer used
-	 */
-	@Deprecated(since = "7", forRemoval = true)
-	public final String getIdentifierOrUniqueKeyPropertyName(Mapping factory)
-			throws MappingException {
-		return getIdentifierOrUniqueKeyPropertyName( (MappingContext) factory);
 	}
 
 	/**
@@ -709,18 +664,17 @@ public abstract class EntityType extends AbstractType implements AssociationType
 	 *
 	 * @throws HibernateException Indicates problems performing the load.
 	 */
-	protected final Object resolveIdentifier(Object id, SharedSessionContractImplementor session, Boolean overridingEager)
+	protected final Object resolveIdentifier(Object id, SharedSessionContractImplementor session)
 			throws HibernateException {
 
-		final boolean isEager = isEager( overridingEager );
 		// If the association is lazy, retrieve the concrete type if required
-		final String entityName = isEager
+		final String entityName = eager
 				? getAssociatedEntityName()
 				: getAssociatedEntityPersister( session.getFactory() )
 						.resolveConcreteProxyTypeForId( id, session )
 						.getEntityName();
 
-		final Object proxyOrEntity = session.internalLoad( entityName, id, isEager, isNullable() );
+		final Object proxyOrEntity = session.internalLoad( entityName, id, eager, isNullable() );
 
 		final LazyInitializer lazyInitializer = extractLazyInitializer( proxyOrEntity );
 		if ( lazyInitializer != null ) {
@@ -730,10 +684,6 @@ public abstract class EntityType extends AbstractType implements AssociationType
 		}
 
 		return proxyOrEntity;
-	}
-
-	protected final Object resolveIdentifier(Object id, SharedSessionContractImplementor session) throws HibernateException {
-		return resolveIdentifier( id, session, null );
 	}
 
 	protected boolean isNull(Object owner, SharedSessionContractImplementor session) {
@@ -765,7 +715,7 @@ public abstract class EntityType extends AbstractType implements AssociationType
 				entityName,
 				uniqueKeyPropertyName,
 				key,
-				getIdentifierOrUniqueKeyType( factory ),
+				getIdentifierOrUniqueKeyType( factory.getRuntimeMetamodels() ),
 				session.getFactory()
 		);
 

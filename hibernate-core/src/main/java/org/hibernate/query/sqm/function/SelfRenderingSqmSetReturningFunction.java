@@ -13,8 +13,8 @@ import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.metamodel.mapping.JdbcMappingContainer;
 import org.hibernate.metamodel.mapping.MappingModelExpressible;
 import org.hibernate.metamodel.mapping.SelectableMapping;
-import org.hibernate.query.derived.AnonymousTupleTableGroupProducer;
-import org.hibernate.query.derived.AnonymousTupleType;
+import org.hibernate.query.sqm.tuple.internal.AnonymousTupleTableGroupProducer;
+import org.hibernate.query.sqm.tuple.internal.AnonymousTupleType;
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.produce.function.ArgumentsValidator;
 import org.hibernate.query.sqm.produce.function.FunctionArgumentTypeResolver;
@@ -225,7 +225,8 @@ public class SelfRenderingSqmSetReturningFunction<T> extends SqmSetReturningFunc
 				tableGroupProducer.getCompatibleTableExpressions(),
 				lateral,
 				canUseInnerJoins,
-				getFunctionRenderer().rendersIdentifierVariable( arguments, walker.getCreationContext().getSessionFactory() ),
+				getFunctionRenderer()
+						.rendersIdentifierVariable( arguments, walker.getCreationContext().getSessionFactory() ),
 				walker.getCreationContext().getSessionFactory()
 		);
 	}
