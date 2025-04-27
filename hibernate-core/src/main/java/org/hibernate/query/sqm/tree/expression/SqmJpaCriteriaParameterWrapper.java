@@ -94,23 +94,27 @@ public class SqmJpaCriteriaParameterWrapper<T>
 
 	/**
 	 * Unsupported.  Visitation for a criteria parameter should be handled
-	 * as part of {@link SemanticQueryWalker#visitJpaCriteriaParameter}.  This wrapper
-	 * is intended just for representing unique SqmParameter references for each
-	 * JpaCriteriaParameter occurrence in the SQM true as part of the {@link org.hibernate.query.QueryParameter}
+	 * as part of {@link SemanticQueryWalker#visitJpaCriteriaParameter}.
+	 * This wrapper is intended just for representing unique SqmParameter
+	 * references for each {@link JpaCriteriaParameter} occurrence in the
+	 * SQM tree as part of the {@link org.hibernate.query.QueryParameter}
 	 * to {@link SqmParameter} to {@link JdbcParameter} transformation.
-	 * Each occurrence requires a unique SqmParameter to make sure we ultimately get the complete
-	 * set of JdbcParameter references
+	 * Each occurrence requires a unique {@link SqmParameter} to make
+	 * sure we ultimately get the complete set of {@code JdbcParameter}
+	 * references.
 	 */
 	@Override
 	public <X> X accept(SemanticQueryWalker<X> walker) {
 		throw new UnsupportedOperationException(
-				"Direct SemanticQueryWalker visitation of a SqmJpaCriteriaParameterWrapper " +
-						"is not supported.  Visitation for a criteria parameter should be handled " +
-						"during `SemanticQueryWalker#visitJpaCriteriaParameter`.  This wrapper is " +
-						"intended only for representing unique SQM parameter nodes for each criteria " +
-						"parameter in the SQM tree as part of the QueryParameter -> SqmParameter -> JdbcParameter " +
-						"transformation.  Each occurrence requires a unique SqmParameter to make sure we" +
-						"ultimately get the complete set of JdbcParameter references"
+				"""
+				Direct SemanticQueryWalker visitation of a SqmJpaCriteriaParameterWrapper \
+				is not supported. Visitation for a criteria parameter should be handled \
+				during SemanticQueryWalker#visitJpaCriteriaParameter. This wrapper is \
+				intended only for representing unique SQM parameter nodes for each criteria \
+				parameter in the SQM tree as part of the QueryParameter -> SqmParameter -> JdbcParameter \
+				transformation. Each occurrence requires a unique SqmParameter to make sure we \
+				ultimately get the complete set of JdbcParameter references.\
+				"""
 		);
 	}
 
