@@ -4,6 +4,7 @@
  */
 package org.hibernate.query.sqm.tree.expression;
 
+import java.util.Objects;
 import java.util.function.Consumer;
 
 import org.hibernate.query.BindableType;
@@ -127,5 +128,16 @@ public class SqmJpaCriteriaParameterWrapper<T>
 		return anotherParameter instanceof SqmJpaCriteriaParameterWrapper ?
 				getJpaCriteriaParameter().compareTo( ( (SqmJpaCriteriaParameterWrapper<?>) anotherParameter ).getJpaCriteriaParameter() )
 				: 1;
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmJpaCriteriaParameterWrapper<?> that
+			&& Objects.equals( this.jpaCriteriaParameter, that.jpaCriteriaParameter );
+	}
+
+	@Override
+	public int hashCode() {
+		return jpaCriteriaParameter.hashCode();
 	}
 }

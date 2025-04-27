@@ -9,6 +9,8 @@ import org.hibernate.spi.NavigablePath;
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SqmPathSource;
 
+import java.util.Objects;
+
 /**
  * @author Steve Ebersole
  */
@@ -40,6 +42,20 @@ public abstract class AbstractSqmSimplePath<T> extends AbstractSqmPath<T> implem
 			hql.append( '.' );
 		}
 		hql.append( getReferencedPathSource().getPathName() );
+	}
+
+	@Override
+	public boolean equals(Object other) {
+		return other instanceof AbstractSqmSimplePath<?> that
+			&& getClass() == other.getClass()
+			&& Objects.equals( this.getReferencedPathSource().getPathName(),
+				that.getReferencedPathSource().getPathName() )
+			&& Objects.equals( this.getLhs(), that.getLhs() );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( getReferencedPathSource().getPathName(), getLhs() );
 	}
 
 	@Override

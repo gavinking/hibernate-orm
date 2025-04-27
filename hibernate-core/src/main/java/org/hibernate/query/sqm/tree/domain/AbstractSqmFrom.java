@@ -949,4 +949,17 @@ public abstract class AbstractSqmFrom<O,T> extends AbstractSqmPath<T> implements
 		}
 		return super.alias( name );
 	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof AbstractSqmFrom<?, ?> that
+			&& Objects.equals( alias, that.alias )
+			&& Objects.equals( joins, that.joins )
+			&& Objects.equals( treats, that.treats );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( alias, joins, treats );
+	}
 }

@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -416,18 +417,30 @@ public abstract class AbstractSqmSelectQuery<T>
 		sqmQueryPart.appendHqlString( hql, context );
 	}
 
+	@Override
+	public boolean equals(Object object) {
+		if ( !(object instanceof AbstractSqmSelectQuery<?> that) ) {
+			return false;
+		}
+		return Objects.equals( resultType, that.resultType ) // for performance!
+			&& Objects.equals( sqmQueryPart, that.sqmQueryPart )
+			&& Objects.equals( cteStatements, that.cteStatements );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( cteStatements, sqmQueryPart );
+	}
+
 	@SuppressWarnings("unchecked")
 	protected Selection<? extends T> getResultSelection(Selection<?>[] selections) {
 		final Class<T> resultType = getResultType();
 		if ( resultType == null || resultType == Object.class ) {
-			switch ( selections.length ) {
-				case 0:
-					throw new IllegalArgumentException( "Empty selections passed to criteria query typed as Object" );
-				case 1:
-					return (Selection<? extends T>) selections[0];
-				default:
-					return (Selection<? extends T>) nodeBuilder().array( selections );
-			}
+			return switch ( selections.length ) {
+				case 0 -> throw new IllegalArgumentException( "Empty selections passed to criteria query typed as Object" );
+				case 1 -> (Selection<? extends T>) selections[0];
+				default -> (Selection<? extends T>) nodeBuilder().array( selections );
+			};
 		}
 		else if ( Tuple.class.isAssignableFrom( resultType ) ) {
 			return (Selection<? extends T>) nodeBuilder().tuple( selections );

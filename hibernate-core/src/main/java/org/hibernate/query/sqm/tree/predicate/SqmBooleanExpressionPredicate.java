@@ -6,6 +6,7 @@ package org.hibernate.query.sqm.tree.predicate;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.hibernate.query.sqm.NodeBuilder;
 import org.hibernate.query.sqm.SemanticQueryWalker;
@@ -80,6 +81,17 @@ public class SqmBooleanExpressionPredicate extends AbstractNegatableSqmPredicate
 	@Override
 	public void appendHqlString(StringBuilder hql, SqmRenderContext context) {
 		booleanExpression.appendHqlString( hql, context );
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmBooleanExpressionPredicate that
+			&& Objects.equals( this.booleanExpression, that.booleanExpression );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( booleanExpression );
 	}
 
 	@Override

@@ -70,7 +70,7 @@ public class SqmFkExpression<T> extends AbstractSqmPath<T> {
 		final SqmEntityValuedSimplePath<?> lhsCopy = (SqmEntityValuedSimplePath<?>) getLhs().copy( context );
 		return context.registerCopy(
 				this,
-				new SqmFkExpression<T>( getNavigablePathCopy( lhsCopy ), lhsCopy )
+				new SqmFkExpression<>( getNavigablePathCopy( lhsCopy ), lhsCopy )
 		);
 	}
 

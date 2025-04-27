@@ -4,8 +4,6 @@
  */
 package org.hibernate.query.sqm.tree.expression;
 
-import java.util.Objects;
-
 import org.hibernate.procedure.spi.NamedCallableQueryMemento;
 import org.hibernate.query.BindableType;
 import org.hibernate.query.ParameterMetadata;
@@ -140,33 +138,11 @@ public class JpaCriteriaParameter<T>
 
 	@Override
 	public void appendHqlString(StringBuilder hql, SqmRenderContext context) {
-		if ( getName() == null ) {
-			hql.append( ':' ).append( context.resolveParameterName( this ) );
-		}
-		else {
-			hql.append( ':' ).append( getName() );
-		}
+		hql.append( ':' ).append( name( context ) );
 	}
 
-	@Override
-	public boolean equals(Object o) {
-		if ( this == o ) {
-			return true;
-		}
-		else if ( o == null ) {
-			return false;
-		}
-		else if ( !(o instanceof JpaCriteriaParameter<?> that) ) {
-			return false;
-		}
-		else {
-			return Objects.equals( name, that.name );
-		}
-	}
-
-	@Override
-	public int hashCode() {
-		return name == null ? super.hashCode() : Objects.hash( name );
+	private String name(SqmRenderContext context) {
+		return name == null ? context.resolveParameterName( this ) : name;
 	}
 
 	@Override
@@ -175,4 +151,6 @@ public class JpaCriteriaParameter<T>
 				? Integer.compare( hashCode(), anotherParameter.hashCode() )
 				: 1;
 	}
+
+	// Must use identity equality
 }

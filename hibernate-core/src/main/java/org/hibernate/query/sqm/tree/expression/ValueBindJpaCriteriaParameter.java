@@ -10,7 +10,8 @@ import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
 
 /**
- * It is a JpaCriteriaParameter created from a value when ValueHandlingMode is equal to BIND
+ * A {@link JpaCriteriaParameter} created from a value when
+ * {@link org.hibernate.query.criteria.ValueHandlingMode} is {@code BIND}.
  *
  * @see org.hibernate.query.criteria.ValueHandlingMode
  */
@@ -46,17 +47,10 @@ public class ValueBindJpaCriteriaParameter<T> extends JpaCriteriaParameter<T> {
 	}
 
 	@Override
-	public boolean equals(Object o) {
-		return this == o;
-	}
-
-	@Override
-	public int hashCode() {
-		return System.identityHashCode( this );
-	}
-
-	@Override
+	// TODO: fix this
 	public int compareTo(SqmParameter anotherParameter) {
 		return this == anotherParameter ? 0 : 1;
 	}
+
+	// Must use identity equality
 }

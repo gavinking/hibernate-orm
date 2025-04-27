@@ -12,6 +12,8 @@ import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
 import org.hibernate.spi.NavigablePath;
 
+import java.util.Objects;
+
 /**
  * @author Steve Ebersole
  */
@@ -140,5 +142,17 @@ public class SqmTreatedEntityValuedSimplePath<T, S extends T>
 		hql.append( " as " );
 		hql.append( treatTarget.getName() );
 		hql.append( ')' );
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmTreatedEntityValuedSimplePath<?, ?> that
+			&& Objects.equals( this.treatTarget.getTypeName(), that.treatTarget.getTypeName() )
+			&& Objects.equals( this.wrappedPath, that.wrappedPath );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( treatTarget.getTypeName(), wrappedPath );
 	}
 }

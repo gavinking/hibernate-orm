@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -161,6 +162,13 @@ public class FullyQualifiedReflectivePathTerminal<E>
 		hql.append( getParent().getFullPath() );
 		hql.append( '.' );
 		hql.append( getLocalName() );
+	}
+
+	@Override
+	public boolean equals(Object node) {
+		return node instanceof FullyQualifiedReflectivePathTerminal<?> that
+			&& Objects.equals( getParent().getFullPath(), that.getParent().getFullPath() )
+			&& Objects.equals( getLocalName(), that.getLocalName() );
 	}
 
 	@Override

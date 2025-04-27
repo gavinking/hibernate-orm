@@ -595,10 +595,12 @@ public class SqmQuerySpec<T> extends SqmQueryPart<T>
 				hql.append( "distinct " );
 			}
 			final List<SqmSelection<?>> selections = selectClause.getSelections();
-			selections.get( 0 ).appendHqlString( hql, context );
-			for ( int i = 1; i < selections.size(); i++ ) {
-				hql.append( ", " );
-				selections.get( i ).appendHqlString( hql, context );
+			if ( !selections.isEmpty() ) {
+				selections.get( 0 ).appendHqlString( hql, context );
+				for ( int i = 1; i < selections.size(); i++ ) {
+					hql.append( ", " );
+					selections.get( i ).appendHqlString( hql, context );
+				}
 			}
 		}
 		if ( fromClause != null ) {

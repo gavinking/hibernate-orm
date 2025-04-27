@@ -13,6 +13,8 @@ import org.hibernate.query.sqm.tree.SqmRenderContext;
 import org.hibernate.query.sqm.tree.from.SqmRoot;
 import org.hibernate.spi.NavigablePath;
 
+import java.util.Objects;
+
 /**
  * @author Steve Ebersole
  */
@@ -37,7 +39,7 @@ public class SqmTreatedRoot extends SqmRoot implements SqmTreatedFrom {
 		this.treatTarget = treatTarget;
 	}
 
-	@SuppressWarnings({ "unchecked", "rawtypes" })
+	@SuppressWarnings("unchecked")
 	private SqmTreatedRoot(
 			NavigablePath navigablePath,
 			SqmRoot wrappedPath,
@@ -123,5 +125,17 @@ public class SqmTreatedRoot extends SqmRoot implements SqmTreatedFrom {
 		hql.append( " as " );
 		hql.append( treatTarget.getName() );
 		hql.append( ')' );
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmTreatedRoot that
+			&& Objects.equals( this.treatTarget.getName(), that.treatTarget.getName() )
+			&& Objects.equals( this.wrappedPath, that.wrappedPath );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash( wrappedPath, treatTarget.getName() );
 	}
 }
