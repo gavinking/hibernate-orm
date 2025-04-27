@@ -223,7 +223,7 @@ public class SqmDerivedJoin<T> extends AbstractSqmJoin<T, T> implements JpaDeriv
 	public boolean equals(Object object) {
 		return object instanceof SqmDerivedJoin<?> that
 			&& super.equals( object )
-			&& lateral == that.lateral
+			&& this.lateral == that.lateral
 			&& Objects.equals( this.subQuery, that.subQuery );
 	}
 

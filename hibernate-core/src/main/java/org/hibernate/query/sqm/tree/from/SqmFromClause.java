@@ -7,6 +7,7 @@ package org.hibernate.query.sqm.tree.from;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 import org.hibernate.internal.util.collections.CollectionHelper;
@@ -16,6 +17,7 @@ import org.hibernate.query.sqm.tree.domain.SqmTreatedPath;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
+import static org.hibernate.internal.util.collections.CollectionHelper.arrayList;
 
 /**
  * Contract representing a from clause.
@@ -32,7 +34,7 @@ public class SqmFromClause implements Serializable {
 	}
 
 	public SqmFromClause(int expectedNumberOfRoots) {
-		this.domainRoots = CollectionHelper.arrayList( expectedNumberOfRoots );
+		domainRoots = arrayList( expectedNumberOfRoots );
 	}
 
 	private SqmFromClause(SqmFromClause original, SqmCopyContext context) {
@@ -191,5 +193,16 @@ public class SqmFromClause implements Serializable {
 		for ( SqmFrom<?, ?> sqmTreat : sqmFrom.getSqmTreats() ) {
 			appendJoins( sqmTreat, sb, context );
 		}
+	}
+
+	@Override
+	public boolean equals(Object object) {
+		return object instanceof SqmFromClause that
+			&& Objects.equals( this.domainRoots, that.domainRoots );
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hashCode( domainRoots );
 	}
 }

@@ -953,9 +953,9 @@ public abstract class AbstractSqmFrom<O,T> extends AbstractSqmPath<T> implements
 	@Override
 	public boolean equals(Object object) {
 		return object instanceof AbstractSqmFrom<?, ?> that
-			&& Objects.equals( alias, that.alias )
-			&& Objects.equals( joins, that.joins )
-			&& Objects.equals( treats, that.treats );
+			&& Objects.equals( this.alias, that.alias )
+			&& Objects.equals( this.joins, that.joins )
+			&& Objects.equals( this.treats, that.treats );
 	}
 
 	@Override

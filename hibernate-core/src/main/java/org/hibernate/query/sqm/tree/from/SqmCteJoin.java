@@ -161,7 +161,7 @@ public class SqmCteJoin<T> extends AbstractSqmJoin<T, T> {
 	public boolean equals(Object object) {
 		return object instanceof SqmCteJoin<?> that
 			&& super.equals( object )
-			&& Objects.equals( cte, that.cte );
+			&& Objects.equals( this.cte, that.cte );
 	}
 
 	@Override

@@ -158,7 +158,7 @@ public abstract class AbstractSqmJoin<L, R> extends AbstractSqmFrom<L, R> implem
 	public boolean equals(Object object) {
 		return object instanceof AbstractSqmJoin<?, ?> that
 			&& super.equals( object )
-			&& joinType == that.joinType
+			&& this.joinType == that.joinType
 			&& Objects.equals( onClausePredicate, that.onClausePredicate );
 	}
 

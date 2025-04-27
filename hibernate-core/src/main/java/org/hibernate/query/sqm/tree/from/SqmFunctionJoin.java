@@ -233,7 +233,7 @@ public class SqmFunctionJoin<E> extends AbstractSqmJoin<Object, E> implements Jp
 	public boolean equals(Object object) {
 		return object instanceof SqmFunctionJoin<?> that
 			&& super.equals( object )
-			&& lateral == that.lateral
+			&& this.lateral == that.lateral
 			&& Objects.equals( function, that.function );
 	}
 

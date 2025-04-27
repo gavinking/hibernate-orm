@@ -231,14 +231,14 @@ public class SqmEntityJoin<L,R>
 	}
 
 	@Override
-	public boolean equals(Object object) {
-		return object instanceof SqmEntityJoin<?, ?> that
-			&& super.equals( that )
-			&& Objects.equals( this.sqmRoot, that.sqmRoot );
+	public boolean equals(Object other) {
+		return other instanceof SqmEntityJoin<?, ?> that
+			&& Objects.equals( this.getEntityName(), that.getEntityName() )
+			&& super.equals( other );
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hashCode( sqmRoot );
+		return Objects.hash( super.hashCode(), getEntityName() );
 	}
 }

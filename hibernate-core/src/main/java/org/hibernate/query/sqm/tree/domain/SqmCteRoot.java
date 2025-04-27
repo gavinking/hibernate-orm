@@ -106,7 +106,7 @@ public class SqmCteRoot<T> extends SqmRoot<T> implements JpaRoot<T> {
 	public boolean equals(Object object) {
 		return object instanceof SqmCteRoot<?> that
 			&& super.equals( object )
-			&& Objects.equals( cte, that.cte );
+			&& Objects.equals( this.cte, that.cte );
 	}
 
 	@Override

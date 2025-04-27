@@ -157,8 +157,8 @@ public abstract class AbstractSqmAttributeJoin<L, R>
 	public boolean equals(Object object) {
 		return object instanceof AbstractSqmAttributeJoin<?, ?> that
 			&& super.equals( object )
-			&& implicitJoin == that.implicitJoin
-			&& fetchJoin == that.fetchJoin;
+			&& this.implicitJoin == that.implicitJoin
+			&& this.fetchJoin == that.fetchJoin;
 	}
 
 	@Override

@@ -48,14 +48,12 @@ public abstract class AbstractSqmSimplePath<T> extends AbstractSqmPath<T> implem
 	public boolean equals(Object other) {
 		return other instanceof AbstractSqmSimplePath<?> that
 			&& getClass() == other.getClass()
-			&& Objects.equals( this.getReferencedPathSource().getPathName(),
-				that.getReferencedPathSource().getPathName() )
-			&& Objects.equals( this.getLhs(), that.getLhs() );
+			&& Objects.equals( this.getNavigablePath(), that.getNavigablePath() );
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash( getReferencedPathSource().getPathName(), getLhs() );
+		return getNavigablePath().hashCode();
 	}
 
 	@Override

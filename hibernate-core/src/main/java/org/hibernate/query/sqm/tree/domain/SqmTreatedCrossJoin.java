@@ -105,12 +105,12 @@ public class SqmTreatedCrossJoin extends SqmCrossJoin implements SqmTreatedJoin 
 	public boolean equals(Object object) {
 		return object instanceof SqmTreatedCrossJoin that
 			&& Objects.equals( this.treatTarget.getName(), that.treatTarget.getName() )
-			&& Objects.equals( this.wrappedPath, that.wrappedPath );
+			&& Objects.equals( this.wrappedPath.getNavigablePath(), that.wrappedPath.getNavigablePath() );
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash( treatTarget.getName(), wrappedPath );
+		return Objects.hash( treatTarget.getName(), wrappedPath.getNavigablePath() );
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })

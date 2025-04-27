@@ -214,6 +214,6 @@ public abstract class SqmQueryPart<T> implements SqmVisitableNode, JpaQueryPart<
 
 	@Override
 	public int hashCode() {
-		return Objects.hash( nodeBuilder, orderByClause, offsetExpression, fetchExpression, fetchClauseType );
+		return Objects.hash( orderByClause, offsetExpression, fetchExpression, fetchClauseType );
 	}
 }

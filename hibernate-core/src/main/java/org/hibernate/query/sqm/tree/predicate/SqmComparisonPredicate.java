@@ -123,13 +123,13 @@ public class SqmComparisonPredicate extends AbstractNegatableSqmPredicate {
 	public boolean equals(Object object) {
 		return object instanceof SqmComparisonPredicate that
 			&& this.isNegated() == that.isNegated()
+			&& this.operator == that.operator
 			&& Objects.equals( this.leftHandExpression, that.leftHandExpression )
-			&& operator == that.operator
 			&& Objects.equals( this.rightHandExpression, that.rightHandExpression );
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash( isNegated(), leftHandExpression, operator, rightHandExpression );
+		return Objects.hash( isNegated(), operator, leftHandExpression, rightHandExpression );
 	}
 }

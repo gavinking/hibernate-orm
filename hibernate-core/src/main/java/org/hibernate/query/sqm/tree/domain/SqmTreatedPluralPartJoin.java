@@ -150,11 +150,11 @@ public class SqmTreatedPluralPartJoin extends SqmPluralPartJoin implements SqmTr
 	public boolean equals(Object object) {
 		return object instanceof SqmTreatedPluralPartJoin that
 			&& Objects.equals( this.treatTarget.getName(), that.treatTarget.getName() )
-			&& Objects.equals( this.wrappedPath, that.wrappedPath );
+			&& Objects.equals( this.wrappedPath.getNavigablePath(), that.wrappedPath.getNavigablePath() );
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash( treatTarget.getName(), wrappedPath );
+		return Objects.hash( treatTarget.getName(), wrappedPath.getNavigablePath() );
 	}
 }

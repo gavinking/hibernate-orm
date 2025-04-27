@@ -123,11 +123,11 @@ public class SqmTreatedEmbeddedValuedSimplePath<T, S extends T> extends SqmEmbed
 	public boolean equals(Object object) {
 		return object instanceof SqmTreatedEmbeddedValuedSimplePath<?, ?> that
 			&& Objects.equals( this.treatTarget.getTypeName(), that.treatTarget.getTypeName() )
-			&& Objects.equals( this.wrappedPath, that.wrappedPath );
+			&& Objects.equals( this.wrappedPath.getNavigablePath(), that.wrappedPath.getNavigablePath() );
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash( treatTarget.getTypeName(), wrappedPath );
+		return Objects.hash( treatTarget.getTypeName(), wrappedPath.getNavigablePath() );
 	}
 }
