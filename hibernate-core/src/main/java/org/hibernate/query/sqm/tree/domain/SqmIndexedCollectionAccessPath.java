@@ -105,12 +105,12 @@ public class SqmIndexedCollectionAccessPath<T> extends AbstractSqmPath<T> implem
 	@Override
 	public boolean equals(Object object) {
 		return object instanceof SqmIndexedCollectionAccessPath<?> that
-			&& Objects.equals( this.getNavigablePath(), that.getNavigablePath() )
+			&& Objects.equals( this.getLhs(), that.getLhs() )
 			&& Objects.equals( this.selectorExpression, that.selectorExpression );
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash( getNavigablePath(), selectorExpression );
+		return Objects.hash( getLhs(), selectorExpression );
 	}
 }

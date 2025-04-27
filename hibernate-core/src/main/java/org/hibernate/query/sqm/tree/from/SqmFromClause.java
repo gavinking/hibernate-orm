@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-import org.hibernate.internal.util.collections.CollectionHelper;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
 import org.hibernate.query.sqm.tree.domain.SqmTreatedPath;
@@ -72,7 +71,6 @@ public class SqmFromClause implements Serializable {
 		if ( domainRoots == null ) {
 			domainRoots = new ArrayList<>();
 		}
-
 		domainRoots.add( root );
 	}
 
@@ -86,12 +84,7 @@ public class SqmFromClause implements Serializable {
 	}
 
 	public int getNumberOfRoots() {
-		if ( domainRoots == null ) {
-			return 0;
-		}
-		else {
-			return domainRoots.size();
-		}
+		return domainRoots == null ? 0 : domainRoots.size();
 	}
 
 	public void appendHqlString(StringBuilder sb, SqmRenderContext context) {
@@ -148,7 +141,7 @@ public class SqmFromClause implements Serializable {
 				else {
 					sb.append( sqmFrom.resolveAlias( context ) );
 				}
-				sb.append( '.' ).append( ( attributeJoin ).getAttribute().getName() );
+				sb.append( '.' ).append( attributeJoin.getAttribute().getName() );
 				sb.append( ' ' ).append( sqmJoin.resolveAlias( context ) );
 				if ( attributeJoin.getJoinPredicate() != null ) {
 					sb.append( " on " );
@@ -162,7 +155,7 @@ public class SqmFromClause implements Serializable {
 				appendJoins( sqmJoin, sb, context );
 			}
 			else if ( sqmJoin instanceof SqmEntityJoin<?, ?> sqmEntityJoin ) {
-				sb.append( ( sqmEntityJoin ).getEntityName() );
+				sb.append( sqmEntityJoin.getEntityName() );
 				sb.append( ' ' ).append( sqmJoin.resolveAlias( context ) );
 				if ( sqmEntityJoin.getJoinPredicate() != null ) {
 					sb.append( " on " );
@@ -198,11 +191,43 @@ public class SqmFromClause implements Serializable {
 	@Override
 	public boolean equals(Object object) {
 		return object instanceof SqmFromClause that
-			&& Objects.equals( this.domainRoots, that.domainRoots );
+			&& this.getNumberOfRoots() == that.getNumberOfRoots()
+			&& equalRoots( this.getRoots(), that.getRoots() );
+	}
+
+	// both lists must be the same size
+	private boolean equalRoots(List<SqmRoot<?>> theseRoots, List<SqmRoot<?>> thoseRoots) {
+		for ( int i = 0; i < theseRoots.size(); i++ ) {
+			var thisRoot = theseRoots.get( i );
+			var thatRoot = thoseRoots.get( i );
+			if ( !Objects.equals( thisRoot.getEntityName(), thatRoot.getEntityName() )
+				|| !Objects.equals( thisRoot.getExplicitAlias(), thatRoot.getExplicitAlias() )
+				|| thisRoot.getNumberOfJoins() != thatRoot.getNumberOfJoins()
+				|| !equalsJoins( thisRoot.getSqmJoins(), thatRoot.getSqmJoins() ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private boolean equalsJoins(List<? extends SqmJoin<?, ?>> theseJoins, List<? extends SqmJoin<?, ?>> thoseJoins) {
+		for ( int i = 0; i < theseJoins.size(); i++ ) {
+			var thisJoin = theseJoins.get( i );
+			var thatJoin = thoseJoins.get( i );
+			if ( !Objects.equals( thisJoin.getNavigablePath(), thatJoin.getNavigablePath() )
+				|| !Objects.equals( thisJoin.getExplicitAlias(), thatJoin.getExplicitAlias() )
+				|| !Objects.equals( thisJoin.getJoinType(), thatJoin.getJoinType() )
+				|| thisJoin.getNumberOfJoins() != thatJoin.getNumberOfJoins()
+				|| !Objects.equals( thisJoin.getOn(), thatJoin.getOn() )
+				|| !equalsJoins( thisJoin.getSqmJoins(), thatJoin.getSqmJoins() ) ) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hashCode( domainRoots );
+		return getNumberOfRoots();
 	}
 }

@@ -419,12 +419,10 @@ public abstract class AbstractSqmSelectQuery<T>
 
 	@Override
 	public boolean equals(Object object) {
-		if ( !(object instanceof AbstractSqmSelectQuery<?> that) ) {
-			return false;
-		}
-		return Objects.equals( resultType, that.resultType ) // for performance!
-			&& Objects.equals( sqmQueryPart, that.sqmQueryPart )
-			&& Objects.equals( cteStatements, that.cteStatements );
+		return object instanceof AbstractSqmSelectQuery<?> that
+			&& Objects.equals( this.resultType, that.resultType ) // for performance!
+			&& Objects.equals( this.sqmQueryPart, that.sqmQueryPart )
+			&& Objects.equals( this.cteStatements, that.cteStatements );
 	}
 
 	@Override

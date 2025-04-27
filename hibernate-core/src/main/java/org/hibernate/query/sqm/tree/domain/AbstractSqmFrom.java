@@ -6,7 +6,6 @@ package org.hibernate.query.sqm.tree.domain;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -62,6 +61,8 @@ import jakarta.persistence.metamodel.PluralAttribute;
 import jakarta.persistence.metamodel.SetAttribute;
 import jakarta.persistence.metamodel.SingularAttribute;
 
+import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableList;
 import static org.hibernate.query.sqm.internal.SqmUtil.findCompatibleFetchJoin;
 
 /**
@@ -207,7 +208,12 @@ public abstract class AbstractSqmFrom<O,T> extends AbstractSqmPath<T> implements
 
 	@Override
 	public List<SqmJoin<T, ?>> getSqmJoins() {
-		return joins == null ? Collections.emptyList() : Collections.unmodifiableList( joins );
+		return joins == null ? emptyList() : unmodifiableList( joins );
+	}
+
+	@Override
+	public int getNumberOfJoins() {
+		return joins == null ? 0 : joins.size();
 	}
 
 	@Override
@@ -250,7 +256,7 @@ public abstract class AbstractSqmFrom<O,T> extends AbstractSqmPath<T> implements
 
 	@Override
 	public List<SqmTreatedFrom<?,?,?>> getSqmTreats() {
-		return treats == null ? Collections.emptyList() : treats;
+		return treats == null ? emptyList() : treats;
 	}
 
 	protected <S extends T, X extends SqmTreatedFrom<O,T,S>> X findTreat(ManagedDomainType<S> targetType, String alias) {
@@ -953,13 +959,15 @@ public abstract class AbstractSqmFrom<O,T> extends AbstractSqmPath<T> implements
 	@Override
 	public boolean equals(Object object) {
 		return object instanceof AbstractSqmFrom<?, ?> that
-			&& Objects.equals( this.alias, that.alias )
-			&& Objects.equals( this.joins, that.joins )
-			&& Objects.equals( this.treats, that.treats );
+			&& super.equals( that )
+			&& Objects.equals( this.alias, that.alias ); // TODO: is this necessary?
+//			&& Objects.equals( this.joins, that.joins )
+//			&& Objects.equals( this.treats, that.treats );
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash( alias, joins, treats );
+		return Objects.hash( super.hashCode(), alias );
+//		return Objects.hash( alias, joins, treats );
 	}
 }

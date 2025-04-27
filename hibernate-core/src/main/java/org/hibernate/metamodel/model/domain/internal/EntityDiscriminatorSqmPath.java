@@ -78,4 +78,9 @@ public class EntityDiscriminatorSqmPath<T> extends AbstractSqmPath<T> implements
 		return object instanceof EntityDiscriminatorSqmPath<?> that
 			&& Objects.equals( this.getLhs(), that.getLhs() );
 	}
+
+	@Override
+	public int hashCode() {
+		return getLhs().hashCode();
+	}
 }

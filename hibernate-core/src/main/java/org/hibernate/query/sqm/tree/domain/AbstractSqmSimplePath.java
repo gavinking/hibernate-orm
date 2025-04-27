@@ -49,11 +49,15 @@ public abstract class AbstractSqmSimplePath<T> extends AbstractSqmPath<T> implem
 		return other instanceof AbstractSqmSimplePath<?> that
 			&& getClass() == other.getClass()
 			&& Objects.equals( this.getNavigablePath(), that.getNavigablePath() );
+//			&& Objects.equals( this.getReferencedPathSource().getPathName(),
+//				that.getReferencedPathSource().getPathName() )
+//			&& Objects.equals( this.getLhs(), that.getLhs() );
 	}
 
 	@Override
 	public int hashCode() {
 		return getNavigablePath().hashCode();
+//		return Objects.hash( getReferencedPathSource().getPathName(), getLhs() );
 	}
 
 	@Override

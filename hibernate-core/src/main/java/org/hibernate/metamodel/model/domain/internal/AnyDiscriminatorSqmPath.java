@@ -51,7 +51,7 @@ public class AnyDiscriminatorSqmPath<T> extends AbstractSqmPath<T> implements Di
 
 	@Override
 	public boolean equals(Object object) {
-		return object instanceof EntityDiscriminatorSqmPath<?> that
+		return object instanceof AnyDiscriminatorSqmPath<?> that
 			&& Objects.equals( this.getLhs(), that.getLhs() );
 	}
 

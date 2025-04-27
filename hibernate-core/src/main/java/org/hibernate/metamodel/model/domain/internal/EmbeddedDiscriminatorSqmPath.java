@@ -67,4 +67,9 @@ public class EmbeddedDiscriminatorSqmPath<T> extends AbstractSqmPath<T> implemen
 		return object instanceof EmbeddedDiscriminatorSqmPath<?> that
 			&& Objects.equals( this.getLhs(), that.getLhs() );
 	}
+
+	@Override
+	public int hashCode() {
+		return getLhs().hashCode();
+	}
 }
