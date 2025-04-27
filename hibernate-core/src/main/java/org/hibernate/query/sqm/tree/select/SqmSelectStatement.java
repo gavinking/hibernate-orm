@@ -523,13 +523,14 @@ public class SqmSelectStatement<T> extends AbstractSqmSelectQuery<T>
 	public SqmSelectStatement<Long> createCountQuery() {
 		final SqmSelectStatement<?> copy = createCopy( noParamCopyContext(), Object.class );
 		final SqmQueryPart<?> queryPart = copy.getQueryPart();
-		final SqmQuerySpec<?> querySpec;
 		//TODO: detect queries with no 'group by', but aggregate functions
 		//      in 'select' list (we don't even need to hit the database to
 		//      know they return exactly one row)
-		if ( queryPart.isSimpleQueryPart()
-				&& !( querySpec = (SqmQuerySpec<?>) queryPart ).isDistinct()
+		if ( queryPart instanceof SqmQuerySpec<?> querySpec
+				&& !querySpec.isDistinct()
 				&& querySpec.getGroupingExpressions().isEmpty() ) {
+			// we can just remove any fetch joins and
+			// replace the select list with count(*)
 			for ( SqmRoot<?> root : querySpec.getRootList() ) {
 				root.removeLeftFetchJoins();
 			}
@@ -537,13 +538,13 @@ public class SqmSelectStatement<T> extends AbstractSqmSelectQuery<T>
 			if ( querySpec.getFetch() == null && querySpec.getOffset() == null ) {
 				querySpec.setOrderByClause( null );
 			}
-
 			return (SqmSelectStatement<Long>) copy;
 		}
 		else {
+			// we have to wrap query in an outer query
 			aliasSelections( queryPart );
-			final SqmSubQuery<?> subquery = new SqmSubQuery<>( copy, queryPart, null, nodeBuilder() );
 			final SqmSelectStatement<Long> query = nodeBuilder().createQuery( Long.class );
+			final SqmSubQuery<?> subquery = new SqmSubQuery<>( query, queryPart, null, nodeBuilder() );
 			query.from( subquery );
 			query.select( nodeBuilder().count() );
 			if ( subquery.getFetch() == null && subquery.getOffset() == null ) {

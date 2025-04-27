@@ -249,8 +249,8 @@ public class SqmQueryGroup<T> extends SqmQueryPart<T> implements JpaQueryGroup<T
 	public boolean equals(Object object) {
 		return object instanceof SqmQueryGroup<?> that
 			&& super.equals( that )
-			&& setOperator == that.setOperator
-			&& Objects.equals( queryParts, that.queryParts );
+			&& this.setOperator == that.setOperator
+			&& Objects.equals( this.queryParts, that.queryParts );
 	}
 
 	@Override

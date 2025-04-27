@@ -202,6 +202,7 @@ public class SqmFromClause implements Serializable {
 			var thatRoot = thoseRoots.get( i );
 			if ( !Objects.equals( thisRoot.getEntityName(), thatRoot.getEntityName() )
 				|| !Objects.equals( thisRoot.getExplicitAlias(), thatRoot.getExplicitAlias() )
+				|| !Objects.equals( thisRoot, thatRoot ) // needed for SqmDerivedRoots
 				|| thisRoot.getNumberOfJoins() != thatRoot.getNumberOfJoins()
 				|| !equalsJoins( thisRoot.getSqmJoins(), thatRoot.getSqmJoins() ) ) {
 				return false;
@@ -217,6 +218,7 @@ public class SqmFromClause implements Serializable {
 			if ( !Objects.equals( thisJoin.getNavigablePath(), thatJoin.getNavigablePath() )
 				|| !Objects.equals( thisJoin.getExplicitAlias(), thatJoin.getExplicitAlias() )
 				|| !Objects.equals( thisJoin.getJoinType(), thatJoin.getJoinType() )
+				|| !Objects.equals( thisJoin, thatJoin ) // needed for SqmDerivedRoots
 				|| thisJoin.getNumberOfJoins() != thatJoin.getNumberOfJoins()
 				|| !Objects.equals( thisJoin.getOn(), thatJoin.getOn() )
 				|| !equalsJoins( thisJoin.getSqmJoins(), thatJoin.getSqmJoins() ) ) {
