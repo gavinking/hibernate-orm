@@ -68,7 +68,7 @@ public class SqmEvery<T> extends AbstractSqmExpression<T> {
 	@Override
 	public boolean equals(Object object) {
 		return object instanceof SqmEvery<?> sqmAny
-			&& Objects.equals( subquery, sqmAny.subquery );
+			&& Objects.equals( this.subquery, sqmAny.subquery );
 	}
 
 	@Override

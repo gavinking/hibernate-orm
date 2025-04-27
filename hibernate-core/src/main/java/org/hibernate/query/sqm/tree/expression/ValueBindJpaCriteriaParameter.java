@@ -48,9 +48,31 @@ public class ValueBindJpaCriteriaParameter<T> extends JpaCriteriaParameter<T> {
 
 	@Override
 	// TODO: fix this
-	public int compareTo(SqmParameter anotherParameter) {
-		return this == anotherParameter ? 0 : 1;
+	public int compareTo(SqmParameter parameter) {
+		return this == parameter ? 0 : 1;
 	}
 
-	// Must use identity equality
+	// this is not really a parameter, it's really a literal value
+	// so use value equality based on its value
+
+//	@Override
+//	public boolean equals(Object object) {
+//		return object instanceof ValueBindJpaCriteriaParameter<?> that
+//			&& Objects.equals( value, that.value );
+//	}
+//
+//	@Override
+//	public int hashCode() {
+//		return value == null ? 0 : value.hashCode();
+//	}
+
+	@Override
+	public boolean equals(Object object) {
+		return this == object;
+	}
+
+	@Override
+	public int hashCode() {
+		return System.identityHashCode( this );
+	}
 }

@@ -15,6 +15,8 @@ import org.hibernate.query.sqm.SqmExpressible;
 import org.hibernate.query.sqm.tree.SqmCopyContext;
 import org.hibernate.query.sqm.tree.SqmRenderContext;
 
+import java.util.Objects;
+
 /**
  * {@link JpaParameterExpression} created via JPA {@link jakarta.persistence.criteria.CriteriaBuilder}.
  * <p>
@@ -146,11 +148,25 @@ public class JpaCriteriaParameter<T>
 	}
 
 	@Override
-	public int compareTo(SqmParameter anotherParameter) {
-		return anotherParameter instanceof JpaCriteriaParameter
-				? Integer.compare( hashCode(), anotherParameter.hashCode() )
+	public int compareTo(SqmParameter parameter) {
+		return parameter instanceof JpaCriteriaParameter
+				? Integer.compare( hashCode(), parameter.hashCode() )
 				: 1;
 	}
 
-	// Must use identity equality
+	// we can use value equality if the parameter has a name
+	// otherwise we must fall back to identity equality
+
+	@Override
+	public boolean equals(Object object) {
+		return this == object
+			|| object instanceof JpaCriteriaParameter<?> that
+				&& this.name != null && that.name != null
+				&& Objects.equals( this.name, that.name );
+	}
+
+	@Override
+	public int hashCode() {
+		return name == null ? super.hashCode() : name.hashCode();
+	}
 }

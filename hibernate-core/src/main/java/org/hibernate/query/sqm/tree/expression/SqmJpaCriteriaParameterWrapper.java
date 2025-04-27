@@ -4,7 +4,6 @@
  */
 package org.hibernate.query.sqm.tree.expression;
 
-import java.util.Objects;
 import java.util.function.Consumer;
 
 import org.hibernate.query.BindableType;
@@ -18,10 +17,12 @@ import org.hibernate.sql.ast.tree.expression.JdbcParameter;
 import static org.hibernate.query.sqm.tree.expression.SqmExpressionHelper.toSqmType;
 
 /**
- * Acts as the per-use wrapper for a JpaCriteriaParameter ({@link jakarta.persistence.criteria.CriteriaBuilder#parameter}).
- *
- * JpaCriteriaParameter is the "domain query parameter" ({@link org.hibernate.query.QueryParameter}
- * while SqmJpaCriteriaParameterWrapper is the {@link SqmParameter}
+ * Acts as the per-use wrapper for a {@link JpaCriteriaParameter}
+ * ({@link jakarta.persistence.criteria.CriteriaBuilder#parameter}).
+ * <p>
+ * {@code JpaCriteriaParameter} is the "domain query parameter"
+ * ({@link org.hibernate.query.QueryParameter} while
+ * {@code SqmJpaCriteriaParameterWrapper} is the {@link SqmParameter}
  */
 public class SqmJpaCriteriaParameterWrapper<T>
 		extends AbstractSqmExpression<T>
@@ -125,19 +126,19 @@ public class SqmJpaCriteriaParameterWrapper<T>
 
 	@Override
 	public int compareTo(SqmParameter anotherParameter) {
-		return anotherParameter instanceof SqmJpaCriteriaParameterWrapper ?
-				getJpaCriteriaParameter().compareTo( ( (SqmJpaCriteriaParameterWrapper<?>) anotherParameter ).getJpaCriteriaParameter() )
+		return anotherParameter instanceof SqmJpaCriteriaParameterWrapper<?> wrapper
+				? getJpaCriteriaParameter().compareTo( wrapper.getJpaCriteriaParameter() )
 				: 1;
 	}
 
-	@Override
-	public boolean equals(Object object) {
-		return object instanceof SqmJpaCriteriaParameterWrapper<?> that
-			&& Objects.equals( this.jpaCriteriaParameter, that.jpaCriteriaParameter );
-	}
-
-	@Override
-	public int hashCode() {
-		return jpaCriteriaParameter.hashCode();
-	}
+//	@Override
+//	public boolean equals(Object object) {
+//		return object instanceof SqmJpaCriteriaParameterWrapper<?> that
+//			&& Objects.equals( this.jpaCriteriaParameter, that.jpaCriteriaParameter );
+//	}
+//
+//	@Override
+//	public int hashCode() {
+//		return jpaCriteriaParameter.hashCode();
+//	}
 }

@@ -167,7 +167,7 @@ public class SqmCaseSearched<R>
 
 	@Override
 	public int hashCode() {
-		return Objects.hash( this.whenFragments, otherwise );
+		return Objects.hash( whenFragments, otherwise );
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

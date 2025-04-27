@@ -148,9 +148,9 @@ public class SqmBinaryArithmetic<T> extends AbstractSqmExpression<T> implements 
 	@Override
 	public boolean equals(Object object) {
 		return object instanceof SqmBinaryArithmetic<?> that
-			&& operator == that.operator
-			&& Objects.equals( lhsOperand, that.lhsOperand )
-			&& Objects.equals( rhsOperand, that.rhsOperand );
+			&& this.operator == that.operator
+			&& Objects.equals( this.lhsOperand, that.lhsOperand )
+			&& Objects.equals( this.rhsOperand, that.rhsOperand );
 	}
 
 	@Override

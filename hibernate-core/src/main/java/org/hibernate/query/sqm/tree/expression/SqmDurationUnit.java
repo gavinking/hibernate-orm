@@ -59,7 +59,7 @@ public class SqmDurationUnit<T> extends AbstractSqmNode implements SqmTypedNode<
 	@Override
 	public boolean equals(Object object) {
 		return object instanceof SqmDurationUnit<?> that
-			&& unit == that.unit;
+			&& this.unit == that.unit;
 	}
 
 	@Override

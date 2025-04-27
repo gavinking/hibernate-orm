@@ -64,7 +64,7 @@ public class SqmDistinct<T> extends AbstractSqmNode implements SqmTypedNode<T> {
 	@Override
 	public boolean equals(Object object) {
 		return object instanceof SqmDistinct<?> that
-			&& Objects.equals( expression, that.expression );
+			&& Objects.equals( this.expression, that.expression );
 	}
 
 	@Override

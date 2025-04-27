@@ -101,12 +101,12 @@ public class SqmAnyDiscriminatorValue<T> extends AbstractSqmExpression<T>
 	@Override
 	public boolean equals(Object object) {
 		return object instanceof SqmAnyDiscriminatorValue<?> that
-			&& Objects.equals( this.getEntityValue().getName(), that.getEntityValue().getName() )
-			&& Objects.equals( this.getPathName(), that.getPathName() );
+			&& Objects.equals( this.value.getName(), that.value.getName() )
+			&& Objects.equals( this.pathName, that.pathName );
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash( value, pathName );
+		return Objects.hash( value.getName(), pathName );
 	}
 }
