@@ -75,8 +75,8 @@ public class SqmSelection<T> extends AbstractSqmNode implements SqmAliasedNode<T
 	@Override
 	public boolean equals(Object object) {
 		return object instanceof SqmSelection<?> that
-			&& Objects.equals( selectableNode, that.selectableNode )
-			&& Objects.equals( alias, that.alias );
+			&& Objects.equals( this.selectableNode, that.selectableNode )
+			&& Objects.equals( this.alias, that.alias );
 	}
 
 	@Override

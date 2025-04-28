@@ -98,4 +98,11 @@ public abstract class AbstractSqmStatement<T> extends AbstractSqmNode implements
 				.filter( parameterExpression -> !( parameterExpression instanceof ValueBindJpaCriteriaParameter ) )
 				.collect( Collectors.toSet() );
 	}
+
+	private int alias = 0;
+
+	@Override
+	public String generateAlias() {
+		return "var" + (++alias);
+	}
 }

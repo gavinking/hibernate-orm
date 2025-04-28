@@ -783,4 +783,9 @@ public class SqmSubQuery<T> extends AbstractSqmSelectQuery<T>
 	public int hashCode() {
 		return Objects.hash( super.hashCode(), alias );
 	}
+
+	@Override
+	public String generateAlias() {
+		return parent.generateAlias();
+	}
 }

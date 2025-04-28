@@ -334,14 +334,16 @@ public abstract class AbstractSqmPath<T> extends AbstractSqmExpression<T> implem
 	public boolean equals(Object object) {
 		return object instanceof AbstractSqmPath<?> that
 			&& this.getClass() == that.getClass()
-			&& Objects.equals( this.navigablePath, that.navigablePath );
+			&& Objects.equals( this.navigablePath, that.navigablePath )
+			&& Objects.equals( this.getExplicitAlias(), that.getExplicitAlias() );
 //			&& Objects.equals( this.lhs, that.lhs );
 	}
 
 	@Override
 	public int hashCode() {
+		return Objects.hash( navigablePath, getExplicitAlias() );
 //		return lhs == null ? 0 : lhs.hashCode();
-		return navigablePath.hashCode();
+//		return navigablePath.hashCode();
 //		return Objects.hash( navigablePath, lhs );
 	}
 

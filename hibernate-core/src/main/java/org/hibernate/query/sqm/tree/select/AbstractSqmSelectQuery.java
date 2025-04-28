@@ -280,12 +280,11 @@ public abstract class AbstractSqmSelectQuery<T>
 		return addRoot(
 				new SqmRoot<>(
 						nodeBuilder().getDomainModel().entity( entityClass ),
-						null,
+						generateAlias(),
 						true,
 						nodeBuilder()
 				)
 		);
-
 	}
 
 	@Override

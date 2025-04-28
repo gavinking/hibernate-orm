@@ -175,22 +175,25 @@ public class SqmSelectionQueryImpl<R> extends AbstractSqmSelectionQuery<R>
 		hql = CRITERIA_HQL_STRING;
 		if ( copyAst ) {
 			sqm = criteria.copy( SqmCopyContext.simpleContext() );
-			if ( session.isCriteriaPlanCacheEnabled() ) {
-				queryStringCacheKey = sqm.toHqlString();
-				setQueryPlanCacheable( true );
-			}
-			else {
-				queryStringCacheKey = sqm;
-			}
+			queryStringCacheKey = sqm;
+			setQueryPlanCacheable( true );
+//			if ( session.isCriteriaPlanCacheEnabled() ) {
+//				queryStringCacheKey = sqm.toHqlString();
+//				setQueryPlanCacheable( true );
+//			}
+//			else {
+//				queryStringCacheKey = sqm;
+//			}
 		}
 		else {
 			sqm = criteria;
-			if ( session.isCriteriaPlanCacheEnabled() ) {
-				queryStringCacheKey = sqm.toHqlString();
-			}
-			else {
-				queryStringCacheKey = sqm;
-			}
+			queryStringCacheKey = sqm;
+//			if ( session.isCriteriaPlanCacheEnabled() ) {
+//				queryStringCacheKey = sqm.toHqlString();
+//			}
+//			else {
+//				queryStringCacheKey = sqm;
+//			}
 			// Cache immutable query plans by default
 			setQueryPlanCacheable( true );
 		}

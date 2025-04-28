@@ -956,18 +956,18 @@ public abstract class AbstractSqmFrom<O,T> extends AbstractSqmPath<T> implements
 		return super.alias( name );
 	}
 
-	@Override
-	public boolean equals(Object object) {
-		return object instanceof AbstractSqmFrom<?, ?> that
-			&& super.equals( that )
-			&& Objects.equals( this.alias, that.alias ); // TODO: is this necessary?
-//			&& Objects.equals( this.joins, that.joins )
-//			&& Objects.equals( this.treats, that.treats );
-	}
-
-	@Override
-	public int hashCode() {
-		return Objects.hash( super.hashCode(), alias );
-//		return Objects.hash( alias, joins, treats );
-	}
+//	@Override
+//	public boolean equals(Object object) {
+//		return object instanceof AbstractSqmFrom<?, ?> that
+//			&& super.equals( that )
+//			&& Objects.equals( this.alias, that.alias ); // TODO: is this necessary?
+////			&& Objects.equals( this.joins, that.joins )
+////			&& Objects.equals( this.treats, that.treats );
+//	}
+//
+//	@Override
+//	public int hashCode() {
+//		return Objects.hash( super.hashCode(), alias );
+////		return Objects.hash( alias, joins, treats );
+//	}
 }

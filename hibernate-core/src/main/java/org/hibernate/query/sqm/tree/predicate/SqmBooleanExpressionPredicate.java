@@ -86,12 +86,13 @@ public class SqmBooleanExpressionPredicate extends AbstractNegatableSqmPredicate
 	@Override
 	public boolean equals(Object object) {
 		return object instanceof SqmBooleanExpressionPredicate that
+			&& this.isNegated() == that.isNegated()
 			&& Objects.equals( this.booleanExpression, that.booleanExpression );
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash( booleanExpression );
+		return Objects.hash( booleanExpression, isNegated() );
 	}
 
 	@Override
@@ -101,11 +102,8 @@ public class SqmBooleanExpressionPredicate extends AbstractNegatableSqmPredicate
 
 	@Override
 	public String toString() {
-		if ( isNegated() ) {
-			return "SqmBooleanExpressionPredicate( (not) " + booleanExpression + " )";
-		}
-		else {
-			return "SqmBooleanExpressionPredicate( " + booleanExpression + " )";
-		}
+		return isNegated()
+				? "SqmBooleanExpressionPredicate( (not) " + booleanExpression + " )"
+				: "SqmBooleanExpressionPredicate( " + booleanExpression + " )";
 	}
 }

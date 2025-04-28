@@ -172,7 +172,7 @@ public class SqmInListPredicate<T> extends AbstractNegatableSqmPredicate impleme
 
 	@Override
 	public int hashCode() {
-		return Objects.hash( super.hashCode(), testExpression, listExpressions );
+		return Objects.hash( isNegated(), testExpression, listExpressions );
 	}
 
 	@Override

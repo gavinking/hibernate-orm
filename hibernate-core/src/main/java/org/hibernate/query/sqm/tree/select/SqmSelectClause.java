@@ -152,7 +152,7 @@ public class SqmSelectClause extends AbstractSqmNode implements SqmAliasedExpres
 	public boolean equals(Object other) {
 		return other instanceof SqmSelectClause that
 			&& distinct == that.distinct
-			&& Objects.equals( selections, that.selections );
+			&& Objects.equals( this.selections, that.selections );
 	}
 
 	@Override

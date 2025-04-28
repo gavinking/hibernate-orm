@@ -581,4 +581,11 @@ public class SqmSelectStatement<T> extends AbstractSqmSelectQuery<T>
 			newSelections.add( selection.alias( "c" + newSelections.size() ) );
 		}
 	}
+
+	private int alias = 0;
+
+	@Override
+	public String generateAlias() {
+		return "var" + (++alias);
+	}
 }
