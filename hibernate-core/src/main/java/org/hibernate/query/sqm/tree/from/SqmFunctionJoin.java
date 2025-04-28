@@ -234,7 +234,7 @@ public class SqmFunctionJoin<E> extends AbstractSqmJoin<Object, E> implements Jp
 		return object instanceof SqmFunctionJoin<?> that
 			&& super.equals( object )
 			&& this.lateral == that.lateral
-			&& Objects.equals( function, that.function );
+			&& Objects.equals( this.function, that.function );
 	}
 
 	@Override

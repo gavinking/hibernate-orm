@@ -84,16 +84,16 @@ public abstract class SqmSetReturningFunction<T> extends AbstractSqmNode
 		hql.append( functionName );
 		if ( arguments.isEmpty() ) {
 			hql.append( "()" );
-			return;
 		}
-		hql.append( '(' );
-		arguments.get( 0 ).appendHqlString( hql, context );
-		for ( int i = 1; i < arguments.size(); i++ ) {
-			hql.append( ", " );
-			arguments.get( i ).appendHqlString( hql, context );
+		else {
+			hql.append( '(' );
+			arguments.get( 0 ).appendHqlString( hql, context );
+			for ( int i = 1; i < arguments.size(); i++ ) {
+				hql.append( ", " );
+				arguments.get( i ).appendHqlString( hql, context );
+			}
+			hql.append( ')' );
 		}
-
-		hql.append( ')' );
 	}
 
 	@Override

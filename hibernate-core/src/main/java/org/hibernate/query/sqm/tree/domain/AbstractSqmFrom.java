@@ -653,7 +653,13 @@ public abstract class AbstractSqmFrom<O,T> extends AbstractSqmPath<T> implements
 	public <X> JpaFunctionJoin<X> join(JpaSetReturningFunction<X> function, SqmJoinType joinType, boolean lateral) {
 		validateComplianceFromFunction();
 		//noinspection unchecked
-		final SqmFunctionJoin<X> join = new SqmFunctionJoin<>( (SqmSetReturningFunction<X>) function, alias, joinType, lateral, (SqmRoot<Object>) findRoot() );
+		final SqmFunctionJoin<X> join =
+				new SqmFunctionJoin<>(
+						(SqmSetReturningFunction<X>) function,
+						null,
+						joinType, lateral,
+						(SqmRoot<Object>) findRoot()
+				);
 		//noinspection unchecked
 		addSqmJoin( (SqmJoin<T, ?>) join );
 		return join;
@@ -704,16 +710,16 @@ public abstract class AbstractSqmFrom<O,T> extends AbstractSqmPath<T> implements
 	private void validateComplianceFromSubQuery() {
 		if ( nodeBuilder().isJpaQueryComplianceEnabled() ) {
 			throw new IllegalStateException(
-					"The JPA specification does not support subqueries in the from clause. " +
-							"Please disable the JPA query compliance if you want to use this feature." );
+					"The JPA specification does not support subqueries in the from clause. "
+					+ "Please disable the JPA query compliance if you want to use this feature." );
 		}
 	}
 
 	private void validateComplianceFromFunction() {
 		if ( nodeBuilder().isJpaQueryComplianceEnabled() ) {
 			throw new IllegalStateException(
-					"The JPA specification does not support functions in the from clause. " +
-							"Please disable the JPA query compliance if you want to use this feature." );
+					"The JPA specification does not support functions in the from clause. "
+					+ "Please disable the JPA query compliance if you want to use this feature." );
 		}
 	}
 
