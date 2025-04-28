@@ -592,10 +592,10 @@ public class SqmSelectStatement<T> extends AbstractSqmSelectQuery<T>
 		}
 	}
 
-	private int alias = 0;
+	private int aliasCounter = 0;
 
 	@Override
 	public String generateAlias() {
-		return "var" + (++alias);
+		return "_" + (++aliasCounter);
 	}
 }

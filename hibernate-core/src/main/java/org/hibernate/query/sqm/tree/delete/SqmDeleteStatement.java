@@ -42,7 +42,7 @@ public class SqmDeleteStatement<T>
 		super(
 				new SqmRoot<>(
 						nodeBuilder.getDomainModel().entity( targetEntity ),
-						null,
+						"_0",
 						!nodeBuilder.isJpaQueryComplianceEnabled(),
 						nodeBuilder
 				),

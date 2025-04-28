@@ -315,14 +315,21 @@ public abstract class AbstractSqmSelectQuery<T>
 
 	@Override
 	public <X> SqmRoot<X> from(EntityType<X> entityType) {
-		return addRoot( new SqmRoot<>( (EntityDomainType<X>) entityType, null, true, nodeBuilder() ) );
+		return addRoot(
+				new SqmRoot<>(
+						(EntityDomainType<X>) entityType,
+						generateAlias(),
+						true,
+						nodeBuilder()
+				)
+		);
 	}
 
 	private void validateComplianceFromSubQuery() {
 		if ( nodeBuilder().isJpaQueryComplianceEnabled() ) {
 			throw new IllegalStateException(
-					"The JPA specification does not support subqueries in the from clause. " +
-							"Please disable the JPA query compliance if you want to use this feature." );
+					"The JPA specification does not support subqueries in the from clause. "
+					+ "Please disable the JPA query compliance if you want to use this feature." );
 		}
 	}
 

@@ -128,7 +128,8 @@ public class SqmIndexAggregateFunction<T> extends AbstractSqmSpecificPluralPartP
 	@Override
 	public boolean equals(Object object) {
 		return object instanceof SqmIndexAggregateFunction<?> that
-			&& Objects.equals( functionName, that.functionName )
+			&& Objects.equals( this.functionName, that.functionName )
+			&& Objects.equals( this.getExplicitAlias(), that.getExplicitAlias() )
 			&& Objects.equals( this.getLhs(), that.getLhs() );
 
 	}

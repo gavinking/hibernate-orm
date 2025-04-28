@@ -50,7 +50,7 @@ public class SqmInsertValuesStatement<T> extends AbstractSqmInsertStatement<T> i
 		super(
 				new SqmRoot<>(
 						nodeBuilder.getDomainModel().entity( targetEntity ),
-						null,
+						"_0",
 						false,
 						nodeBuilder
 				),

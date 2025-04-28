@@ -122,6 +122,7 @@ public class SqmTreatedEmbeddedValuedSimplePath<T, S extends T> extends SqmEmbed
 	@Override
 	public boolean equals(Object object) {
 		return object instanceof SqmTreatedEmbeddedValuedSimplePath<?, ?> that
+			&& Objects.equals( this.getExplicitAlias(), that.getExplicitAlias() )
 			&& Objects.equals( this.treatTarget.getTypeName(), that.treatTarget.getTypeName() )
 			&& Objects.equals( this.wrappedPath.getNavigablePath(), that.wrappedPath.getNavigablePath() );
 	}

@@ -99,10 +99,10 @@ public abstract class AbstractSqmStatement<T> extends AbstractSqmNode implements
 				.collect( Collectors.toSet() );
 	}
 
-	private int alias = 0;
+	private int aliasCounter = 0;
 
 	@Override
 	public String generateAlias() {
-		return "var" + (++alias);
+		return "_" + (++aliasCounter);
 	}
 }

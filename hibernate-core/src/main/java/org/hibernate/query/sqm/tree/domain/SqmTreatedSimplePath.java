@@ -148,6 +148,7 @@ public class SqmTreatedSimplePath<T, S extends T>
 	@Override
 	public boolean equals(Object object) {
 		return object instanceof SqmTreatedSimplePath<?, ?> that
+			&& Objects.equals( this.getExplicitAlias(), that.getExplicitAlias() )
 			&& Objects.equals( this.treatTarget.getName(), that.treatTarget.getName() )
 			&& Objects.equals( this.wrappedPath.getNavigablePath(), that.wrappedPath.getNavigablePath() );
 	}

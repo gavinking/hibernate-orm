@@ -123,7 +123,8 @@ public class SqmElementAggregateFunction<T> extends AbstractSqmSpecificPluralPar
 	@Override
 	public boolean equals(Object object) {
 		return object instanceof SqmElementAggregateFunction<?> that
-			&& Objects.equals( functionName, that.functionName )
+			&& Objects.equals( this.functionName, that.functionName )
+			&& Objects.equals( this.getExplicitAlias(), that.getExplicitAlias() )
 			&& Objects.equals( this.getLhs(), that.getLhs() );
 	}
 

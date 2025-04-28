@@ -66,7 +66,8 @@ public class SqmFkExpression<T> extends AbstractSqmPath<T> {
 	@Override
 	public boolean equals(Object object) {
 		return object instanceof SqmFkExpression<?> that
-			&& Objects.equals( getLhs(), that.getLhs() );
+			&& Objects.equals( this.getExplicitAlias(), that.getExplicitAlias() )
+			&& Objects.equals( this.getLhs(), that.getLhs() );
 	}
 
 	@Override
