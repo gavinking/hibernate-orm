@@ -41,10 +41,12 @@ public class SqmCreationHelper {
 	private static final AtomicLong UNIQUE_ID_COUNTER = new AtomicLong();
 
 	public static NavigablePath buildRootNavigablePath(String base, String alias) {
+		// call to determineAlias() currently prevents caching certain plans
 		return new NavigablePath( base, determineAlias( alias ) );
 	}
 
 	public static NavigablePath buildSubNavigablePath(NavigablePath lhs, String base, String alias) {
+		// call to determineAlias() currently prevents caching certain plans
 		return lhs.append( base, determineAlias( alias ) );
 	}
 
