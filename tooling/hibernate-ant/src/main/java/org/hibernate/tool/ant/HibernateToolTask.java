@@ -129,6 +129,12 @@ public class HibernateToolTask extends Task {
 		return generator;
 	}
 
+	public ExporterTask createSchemaAnnotations() {
+		ExporterTask generator = new SchemaAnnotationExporterTask(this);
+		addGenerator( generator );
+		return generator;
+	}
+
 
 	/**
 	 * Set the classpath to be used when running the Java class

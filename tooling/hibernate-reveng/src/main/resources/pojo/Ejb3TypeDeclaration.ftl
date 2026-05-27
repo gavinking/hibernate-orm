@@ -18,6 +18,9 @@
 @${pojo.importType("jakarta.persistence.Embeddable")}
 <#else>
 @${pojo.importType("jakarta.persistence.Entity")}
+<#if useSchemaAnnotations?if_exists>
+@${pojo.importType(schemaPackage + "." + clazz.table.name?upper_case)}
+<#else>
 @${pojo.importType("jakarta.persistence.Table")}(name="${clazz.table.name}"
 <#if clazz.table.schema?exists>
     ,schema="${clazz.table.schema}"
@@ -28,5 +31,6 @@
 <#if uniqueConstraint?has_content>
     , uniqueConstraints = ${uniqueConstraint} 
 </#if>)
+</#if>
 </#if>
 </#if>

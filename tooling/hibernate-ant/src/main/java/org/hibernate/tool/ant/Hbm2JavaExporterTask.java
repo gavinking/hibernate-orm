@@ -18,6 +18,8 @@ public class Hbm2JavaExporterTask extends ExporterTask {
 
 	boolean jdk5 = true;
 
+	boolean useSchemaAnnotations = false;
+
 	public Hbm2JavaExporterTask(HibernateToolTask parent) {
 		super( parent );
 	}
@@ -30,10 +32,19 @@ public class Hbm2JavaExporterTask extends ExporterTask {
 		jdk5 = b;
 	}
 
+	public void setUseSchemaAnnotations(boolean b) {
+		useSchemaAnnotations = b;
+	}
+
+	public void setSchemaPackage(String schemaPackage) {
+		properties.put( "schemaPackage", schemaPackage );
+	}
+
 	protected Exporter configureExporter(Exporter exp) {
 		super.configureExporter( exp );
 		exp.getProperties().setProperty("ejb3", ""+ejb3);
 		exp.getProperties().setProperty("jdk5", ""+jdk5);
+		exp.getProperties().setProperty("useSchemaAnnotations", ""+useSchemaAnnotations);
 		return exp;
 	}
 

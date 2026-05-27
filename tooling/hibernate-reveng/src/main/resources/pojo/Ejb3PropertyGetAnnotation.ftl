@@ -22,16 +22,32 @@
 </#if>
 </#if>
 
+<#if useSchemaAnnotations?if_exists && !pojo.isComponent() && property.columnSpan == 1 && !property.columns[0].formula>
+<#assign schemaAnnotation = pojo.importType(schemaPackage + "." + clazz.table.name?upper_case)>
+<#if c2h.isOneToOne(property)>
+${pojo.generateOneToOneAnnotation(property, md)}
+    @${schemaAnnotation}.${property.columns[0].name?upper_case}
+<#elseif c2h.isManyToOne(property)>
+${pojo.generateManyToOneAnnotation(property)}
+    @${schemaAnnotation}.${property.columns[0].name?upper_case}
+<#elseif c2h.isCollection(property)>
+${pojo.generateCollectionAnnotation(property, md)}
+<#else>
+${pojo.generateBasicAnnotation(property)}
+    @${schemaAnnotation}.${property.columns[0].name?upper_case}
+</#if>
+<#else>
 <#if c2h.isOneToOne(property)>
 ${pojo.generateOneToOneAnnotation(property, md)}
 <#elseif c2h.isManyToOne(property)>
 ${pojo.generateManyToOneAnnotation(property)}
-<#--TODO support optional and targetEntity-->    
+<#--TODO support optional and targetEntity-->
 ${pojo.generateJoinColumnsAnnotation(property, md)}
 <#elseif c2h.isCollection(property)>
 ${pojo.generateCollectionAnnotation(property, md)}
 <#else>
 ${pojo.generateBasicAnnotation(property)}
 ${pojo.generateAnnColumnAnnotation(property)}
+</#if>
 </#if>
 </#if>

@@ -45,6 +45,17 @@ public class GenerateJavaMojo extends AbstractGenerationMojo {
 	@Parameter
 	private String templatePath;
 
+	/** If true, generated entities use schema annotation types instead of
+	 * inline {@code @Table}, {@code @Column}, and {@code @JoinColumn} annotations.
+	 * Requires {@code schemaPackage} to be set. */
+	@Parameter(defaultValue = "false")
+	private boolean useSchemaAnnotations;
+
+	/** The Java package for generated schema annotation types.
+	 * Required when {@code useSchemaAnnotations} is true. */
+	@Parameter
+	private String schemaPackage;
+
 	protected void executeExporter(MetadataDescriptor metadataDescriptor) {
 		Exporter pojoExporter = ExporterFactory.createExporter(ExporterType.JAVA);
 		pojoExporter.getProperties().put(ExporterConstants.METADATA_DESCRIPTOR, metadataDescriptor);
@@ -55,6 +66,10 @@ public class GenerateJavaMojo extends AbstractGenerationMojo {
 		}
 		pojoExporter.getProperties().setProperty("ejb3", String.valueOf(ejb3));
 		pojoExporter.getProperties().setProperty("jdk5", String.valueOf(jdk5));
+		pojoExporter.getProperties().setProperty("useSchemaAnnotations", String.valueOf(useSchemaAnnotations));
+		if (schemaPackage != null) {
+			pojoExporter.getProperties().put("schemaPackage", schemaPackage);
+		}
 		getLog().info("Starting POJO export to directory: " + outputDirectory + "...");
 		pojoExporter.start();
 	}

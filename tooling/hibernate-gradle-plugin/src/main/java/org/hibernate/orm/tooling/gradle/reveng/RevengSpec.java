@@ -20,5 +20,7 @@ public class RevengSpec {
 	public Boolean generateAnnotations = true;
 	public Boolean useGenerics = true;
 	public String templatePath = null;
+	public Boolean useSchemaAnnotations = false;
+	public String schemaPackage = null;
 
 }

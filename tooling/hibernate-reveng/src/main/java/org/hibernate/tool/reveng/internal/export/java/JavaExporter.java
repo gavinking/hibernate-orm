@@ -4,6 +4,10 @@
  */
 package org.hibernate.tool.reveng.internal.export.java;
 
+import org.hibernate.tool.reveng.api.export.Exporter;
+import org.hibernate.tool.reveng.api.export.ExporterConstants;
+import org.hibernate.tool.reveng.api.export.ExporterFactory;
+import org.hibernate.tool.reveng.api.export.ExporterType;
 import org.hibernate.tool.reveng.internal.export.common.GenericExporter;
 
 /**
@@ -34,6 +38,26 @@ public class JavaExporter extends GenericExporter {
 		if(!getProperties().containsKey("jdk5")) {
 			getProperties().put("jdk5", "false");
 		}
+		if(!getProperties().containsKey("useSchemaAnnotations")) {
+			getProperties().put("useSchemaAnnotations", "false");
+		}
 		super.setupContext();
+	}
+
+	@Override
+	protected void doStart() {
+		if ("true".equals(getProperties().get("useSchemaAnnotations"))) {
+			String schemaPackage = (String) getProperties().get("schemaPackage");
+			if (schemaPackage == null || schemaPackage.isBlank()) {
+				throw new RuntimeException(
+						"schemaPackage must be set when useSchemaAnnotations is true");
+			}
+			Exporter schemaExporter = ExporterFactory.createExporter(ExporterType.SCHEMA);
+			schemaExporter.getProperties().put(ExporterConstants.METADATA_DESCRIPTOR, getProperties().get(ExporterConstants.METADATA_DESCRIPTOR));
+			schemaExporter.getProperties().put(ExporterConstants.DESTINATION_FOLDER, getOutputDirectory());
+			schemaExporter.getProperties().put("schemaPackage", schemaPackage);
+			schemaExporter.start();
+		}
+		super.doStart();
 	}
 }
