@@ -4,6 +4,9 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TimeZone;
@@ -27,8 +30,6 @@ import org.hibernate.sql.results.graph.InitializerParent;
 import org.hibernate.sql.results.internal.LoadingCollectionEntryImpl;
 import org.hibernate.sql.results.jdbc.spi.RowProcessingState;
 import org.hibernate.type.descriptor.WrapperOptions;
-import org.hibernate.type.descriptor.java.JdbcTimeJavaType;
-import org.hibernate.type.descriptor.java.JdbcTimestampJavaType;
 import org.hibernate.type.descriptor.jdbc.JdbcType;
 import org.hibernate.type.descriptor.jdbc.TimeJdbcType;
 import org.hibernate.type.descriptor.jdbc.TimestampJdbcType;
@@ -252,8 +253,7 @@ public class NestedCollectionInitializer
 				case NULL_VALUE -> null;
 				case BOOLEAN_VALUE -> javaType.wrap( reader.getBooleanValue(), options );
 				case NUMERIC_VALUE -> adapter.fromNumericValue( javaType, jdbcType, reader, options );
-				case VALUE -> options.getJdbcTimeZone() != null
-						&& ( jdbcType instanceof TimestampJdbcType || jdbcType instanceof TimeJdbcType )
+				case VALUE -> jdbcType instanceof TimestampJdbcType || jdbcType instanceof TimeJdbcType
 						? javaType.wrap(
 								atJdbcTimeZone( jdbcType, reader.getStringValue(), options.getJdbcTimeZone() ),
 								options
@@ -273,14 +273,14 @@ public class NestedCollectionInitializer
 	 * JDBC time zone}, as {@link java.sql.ResultSet#getTimestamp(int, java.util.Calendar)} does.
 	 */
 	private static Object atJdbcTimeZone(JdbcType jdbcType, String value, TimeZone timeZone) {
-		final var zone = timeZone.toZoneId();
+		final var zone = timeZone == null ? ZoneId.systemDefault() : timeZone.toZoneId();
 		if ( jdbcType instanceof TimestampJdbcType ) {
-			final var local = JdbcTimestampJavaType.INSTANCE.fromEncodedString( value, 0, value.length() );
-			return Timestamp.from( local.toLocalDateTime().atZone( zone ).toInstant() );
+			final var local = LocalDateTime.parse( value );
+			return Timestamp.from( local.atZone( zone ).toInstant() );
 		}
 		else {
-			final var local = JdbcTimeJavaType.INSTANCE.fromEncodedString( value, 0, value.length() );
-			return new Time( LocalDate.EPOCH.atTime( local.toLocalTime() ).atZone( zone ).toInstant().toEpochMilli() );
+			final var local = LocalTime.parse( value );
+			return new Time( LocalDate.EPOCH.atTime( local ).atZone( zone ).toInstant().toEpochMilli() );
 		}
 	}
 
