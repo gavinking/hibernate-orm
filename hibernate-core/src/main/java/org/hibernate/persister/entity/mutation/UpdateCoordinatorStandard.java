@@ -440,7 +440,7 @@ public class UpdateCoordinatorStandard extends AbstractMutationCoordinator imple
 		}
 	}
 
-	private boolean supportsDatabaseDirtinessCheck(@Nullable EntityVersionMapping versionMapping) {
+	protected boolean supportsDatabaseDirtinessCheck(@Nullable EntityVersionMapping versionMapping) {
 		final var persister = entityPersister();
 		final var updateDelegate = persister.getUpdateDelegate();
 		if ( versionMapping != null && !persister.isVersionPropertyGenerated()
@@ -1421,7 +1421,7 @@ public class UpdateCoordinatorStandard extends AbstractMutationCoordinator imple
 	}
 
 	@Nonnull
-	private TableMutationBuilder<?> createTableUpdateBuilder(@Nonnull EntityTableMapping tableMapping) {
+	protected TableMutationBuilder<?> createTableUpdateBuilder(@Nonnull EntityTableMapping tableMapping) {
 		final var delegate =
 				tableMapping.isIdentifierTable()
 						? entityPersister().getUpdateDelegate()

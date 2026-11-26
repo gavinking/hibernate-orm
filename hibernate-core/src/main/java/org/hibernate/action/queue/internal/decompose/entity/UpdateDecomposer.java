@@ -301,7 +301,8 @@ public class UpdateDecomposer extends AbstractDecomposer<EntityUpdateAction>
 			if ( forceIncrementOperation != null ) {
 				final List<FlushOperation> additionalOperations = new ArrayList<>();
 				mutationPlanContributor.contributeAdditionalUpdate( context, additionalOperations::add );
-				emitTailOperations( forceIncrementOperation, additionalOperations, postUpdateHandling, ordinalBase, operationConsumer );
+				emitTailOperations( forceIncrementOperation, forceIncrementOperation, additionalOperations,
+						postUpdateHandling, ordinalBase, operationConsumer );
 				return;
 			}
 		}
@@ -369,6 +370,7 @@ public class UpdateDecomposer extends AbstractDecomposer<EntityUpdateAction>
 
 		int localOrd = 0;
 		FlushOperation previousOperation = null;
+		FlushOperation identifierTableMutation = null;
 
 		// determine whether the entity we are about to update is being deleted in the same flush
 		final boolean isBeingDeleted = decompositionContext != null
@@ -426,6 +428,9 @@ public class UpdateDecomposer extends AbstractDecomposer<EntityUpdateAction>
 							operationConsumer.accept( previousOperation );
 						}
 						previousOperation = op;
+						if ( tableDescriptor.isIdentifierTable() ) {
+							identifierTableMutation = op;
+						}
 					}
 				}
 			}
@@ -433,7 +438,8 @@ public class UpdateDecomposer extends AbstractDecomposer<EntityUpdateAction>
 
 		final List<FlushOperation> additionalOperations = new ArrayList<>();
 		mutationPlanContributor.contributeAdditionalUpdate( context, additionalOperations::add );
-		emitTailOperations( previousOperation, additionalOperations, postUpdateHandling, ordinalBase, operationConsumer );
+		emitTailOperations( previousOperation, identifierTableMutation, additionalOperations,
+				postUpdateHandling, ordinalBase, operationConsumer );
 	}
 
 	private FilteredUpdateCache.Key filteredUpdateKey(
@@ -497,6 +503,7 @@ public class UpdateDecomposer extends AbstractDecomposer<EntityUpdateAction>
 
 	private void emitTailOperations(
 			FlushOperation previousOperation,
+			FlushOperation identifierTableMutation,
 			List<FlushOperation> additionalOperations,
 			PostExecutionCallback postExecutionCallback,
 			int ordinalBase,
@@ -523,6 +530,7 @@ public class UpdateDecomposer extends AbstractDecomposer<EntityUpdateAction>
 			operationConsumer.accept( additionalOperations.get( i ) );
 		}
 		final var lastOperation = additionalOperations.get( additionalOperations.size() - 1 );
+		mutationPlanContributor.orderAfterIdentifierTableMutation( lastOperation, identifierTableMutation );
 		lastOperation.setPostExecutionCallback( postExecutionCallback );
 		operationConsumer.accept( lastOperation );
 	}

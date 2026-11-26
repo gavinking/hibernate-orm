@@ -119,6 +119,7 @@ public class InsertDecomposer extends AbstractDecomposer<AbstractEntityInsertAct
 
 		int localOrd = 0;
 		FlushOperation previousOperation = null;
+		FlushOperation identifierTableMutation = null;
 		for ( var tableDescriptor : entityPersister.getTableDescriptors() ) {
 			if ( tableDescriptor.isInverse() ) {
 				continue;
@@ -167,6 +168,9 @@ public class InsertDecomposer extends AbstractDecomposer<AbstractEntityInsertAct
 				operationConsumer.accept( previousOperation );
 			}
 			previousOperation = op;
+			if ( tableDescriptor.isIdentifierTable() ) {
+				identifierTableMutation = op;
+			}
 		}
 
 		if ( mutationPlanContributor == EntityMutationPlanContributor.STANDARD ) {
@@ -189,7 +193,8 @@ public class InsertDecomposer extends AbstractDecomposer<AbstractEntityInsertAct
 					additionalOperations::add
 			);
 
-			emitTailOperations( previousOperation, additionalOperations, postInsertHandling, operationConsumer );
+			emitTailOperations( previousOperation, identifierTableMutation, additionalOperations,
+					postInsertHandling, operationConsumer );
 		}
 	}
 
@@ -205,6 +210,7 @@ public class InsertDecomposer extends AbstractDecomposer<AbstractEntityInsertAct
 
 	private void emitTailOperations(
 			FlushOperation previousOperation,
+			FlushOperation identifierTableMutation,
 			List<FlushOperation> additionalOperations,
 			PostExecutionCallback postExecutionCallback,
 			Consumer<FlushOperation> operationConsumer) {
@@ -223,6 +229,7 @@ public class InsertDecomposer extends AbstractDecomposer<AbstractEntityInsertAct
 			operationConsumer.accept( additionalOperations.get( i ) );
 		}
 		final var lastOperation = additionalOperations.get( additionalOperations.size() - 1 );
+		mutationPlanContributor.orderAfterIdentifierTableMutation( lastOperation, identifierTableMutation );
 		lastOperation.setPostExecutionCallback( postExecutionCallback );
 		operationConsumer.accept( lastOperation );
 	}

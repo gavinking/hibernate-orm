@@ -100,6 +100,10 @@ public interface EntityMutationPlanContributor {
 			Consumer<FlushOperation> operationConsumer) {
 	}
 
+	/// Records an execution dependency when the additional insert or update reads the live row.
+	default void orderAfterIdentifierTableMutation(FlushOperation additionalOperation, FlushOperation identifierTableMutation) {
+	}
+
 	/// Optionally contributes operations to run after the standard entity delete
 	/// operations and before delete post-execution handling.
 	default void contributeAdditionalDelete(

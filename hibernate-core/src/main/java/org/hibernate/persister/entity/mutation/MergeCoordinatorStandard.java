@@ -13,6 +13,7 @@ import org.hibernate.persister.entity.EntityPersister;
 import org.hibernate.sql.spi.mutation.MutationOperation;
 import org.hibernate.sql.ast.spi.model.builder.AbstractTableUpdateBuilder;
 import org.hibernate.sql.ast.internal.model.builder.TableMergeBuilder;
+import org.hibernate.sql.ast.spi.model.builder.TableMutationBuilder;
 import org.hibernate.sql.ast.spi.model.builder.TableUpdateBuilder;
 
 /**
@@ -25,6 +26,15 @@ public class MergeCoordinatorStandard extends UpdateCoordinatorStandard {
 
 	public MergeCoordinatorStandard(@Nonnull EntityPersister entityPersister, @Nonnull SessionFactoryImplementor factory) {
 		super( entityPersister, factory );
+	}
+
+	@Override
+	protected TableMutationBuilder<?> createTableUpdateBuilder(@Nonnull EntityTableMapping tableMapping) {
+		// Database-checked versions use a conditional UPDATE which returns the resolved version.
+		// For other generators the identifier table still needs a MERGE to insert a missing row.
+		return tableMapping.isIdentifierTable() && supportsDatabaseDirtinessCheck( entityPersister().getVersionMapping() )
+				? super.createTableUpdateBuilder( tableMapping )
+				: newTableUpdateBuilder( tableMapping );
 	}
 
 	@Nonnull
