@@ -15,13 +15,30 @@ import org.hibernate.sql.spi.mutation.TableMapping;
  * @author Steve Ebersole
  */
 public final class MergeOperation extends AbstractJdbcMutation {
+	private final boolean conditionalVersion;
+
 	public MergeOperation(
 			TableMapping tableDetails,
 			MutationTarget mutationTarget,
 			String sql,
 			Expectation expectation,
 			List<? extends JdbcParameterBinder> parameterBinders) {
+		this( tableDetails, mutationTarget, sql, expectation, parameterBinders, false );
+	}
+
+	public MergeOperation(
+			TableMapping tableDetails,
+			MutationTarget mutationTarget,
+			String sql,
+			Expectation expectation,
+			List<? extends JdbcParameterBinder> parameterBinders,
+			boolean conditionalVersion) {
 		super( tableDetails, mutationTarget, sql, false, expectation, parameterBinders );
+		this.conditionalVersion = conditionalVersion;
+	}
+
+	public boolean hasConditionalVersion() {
+		return conditionalVersion;
 	}
 
 	@Override

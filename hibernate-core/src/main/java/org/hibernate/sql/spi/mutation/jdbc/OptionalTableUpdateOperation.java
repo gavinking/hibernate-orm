@@ -24,6 +24,7 @@ import org.hibernate.sql.spi.mutation.TableMapping;
 import org.hibernate.sql.spi.mutation.ValuesAnalysis;
 import org.hibernate.sql.ast.spi.model.AbstractTableUpdate;
 import org.hibernate.sql.ast.spi.model.ColumnValueBinding;
+import org.hibernate.sql.ast.spi.model.ConditionalVersionAssignment;
 import org.hibernate.sql.ast.spi.model.ColumnValueParameter;
 import org.hibernate.sql.ast.spi.model.ColumnWriteFragment;
 import org.hibernate.sql.ast.spi.model.MutatingTableReference;
@@ -38,6 +39,7 @@ import org.hibernate.sql.ast.spi.model.TenantIdColumnValueBinding;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -45,7 +47,6 @@ import java.util.Objects;
 import static java.util.Collections.emptyList;
 import static org.hibernate.exception.ConstraintViolationException.ConstraintKind.UNIQUE;
 import static org.hibernate.internal.util.collections.CollectionHelper.arrayList;
-import static org.hibernate.internal.util.collections.CollectionHelper.combine;
 import static org.hibernate.sql.model.ModelMutationLogging.MODEL_MUTATION_LOGGER;
 import static org.hibernate.SPI.Role.IMPLEMENT;
 import static org.hibernate.SPI.Role.USE;
@@ -93,10 +94,19 @@ public class OptionalTableUpdateOperation implements SelfExecutingUpdateOperatio
 		this.keyBindings = upsert.getKeyBindings();
 		this.optimisticLockBindings = upsert.getOptimisticLockBindings();
 		this.parameters = upsert.getParameters();
-
 		this.jdbcValueDescriptors = arrayList( parameters.size() );
 		for ( int i = 0; i < parameters.size(); i++ ) {
 			jdbcValueDescriptors.add( new JdbcValueDescriptorImpl( parameters.get( i ), i + 1 ) );
+		}
+		// Insert parameters keep their positions. The update additionally compares the old row.
+		for ( var binding : valueBindings ) {
+			if ( binding instanceof ConditionalVersionAssignment version ) {
+				for ( var parameter : version.forUpdate( null ).getValueExpression().getParameters() ) {
+					if ( parameter.getUsage() == ParameterUsage.RESTRICT ) {
+						jdbcValueDescriptors.add( new JdbcValueDescriptorImpl( parameter, jdbcValueDescriptors.size() + 1 ) );
+					}
+				}
+			}
 		}
 	}
 
@@ -350,18 +360,15 @@ public class OptionalTableUpdateOperation implements SelfExecutingUpdateOperatio
 		final var jdbcServices = session.getJdbcServices();
 		final var updateValueBindings = getUpdatableValueBindings();
 		final var updateParameters = collectUpdateParameters( updateValueBindings );
-		final var statementDetails =
-				new PreparedStatementGroupSingleTable(
-						translatedUpdate( session, updateValueBindings, updateParameters ),
-						session
-				)
-						.resolvePreparedStatementDetails( tableMapping.getTableName() );
+		final var jdbcUpdate = translatedUpdate( session, updateValueBindings, updateParameters );
+		final var statementDetails = new PreparedStatementGroupSingleTable( jdbcUpdate, session )
+				.resolvePreparedStatementDetails( tableMapping.getTableName() );
 		final String sql = statementDetails.getSqlString();
 		try {
 			final var updateStatement = statementDetails.resolveStatement();
 			jdbcServices.getSqlStatementLogger().logStatement( sql );
 			session.getJdbcSessionContext().getStatementObserver().performingSql( sql, -1 );
-			bindUpdateValues( jdbcValueBindings, updateStatement, updateParameters, sql, session );
+			bindStatementValues( jdbcValueBindings, updateStatement, jdbcUpdate, session );
 			final int rowCount =
 					session.getJdbcCoordinator().getResultSetReturn()
 							.executeUpdate( updateStatement, sql );
@@ -455,29 +462,7 @@ public class OptionalTableUpdateOperation implements SelfExecutingUpdateOperatio
 		try {
 			jdbcServices.getSqlStatementLogger().logStatement( sql );
 			session.getJdbcSessionContext().getStatementObserver().performingSql( sql, -1 );
-			final var bindingGroup = jdbcValueBindings.getBindingGroup( tableMapping.getTableName() );
-			if ( bindingGroup != null ) {
-				bindingGroup.forEachBinding( binding -> {
-					// Skip parameter bindings for e.g. optimistic version check
-					if ( binding.getPosition() <= jdbcInsert.getParameterBinders().size() ) {
-						try {
-							binding.getValueBinder().bind(
-									insertStatement,
-									binding.getValue(),
-									binding.getPosition(),
-									session
-							);
-						}
-						catch (SQLException e) {
-							throw jdbcServices.getSqlExceptionHelper().convert(
-									e,
-									"Unable to bind parameter for upsert insert",
-									sql
-							);
-						}
-					}
-				} );
-			}
+			bindStatementValues( jdbcValueBindings, insertStatement, jdbcInsert, session );
 			final int rowCount = jdbcCoordinator.getResultSetReturn().executeUpdate( insertStatement, sql );
 			if ( rowCount == 0 && isRetryUpdateAfterInsert() ) {
 				return true;
@@ -522,7 +507,7 @@ public class OptionalTableUpdateOperation implements SelfExecutingUpdateOperatio
 	protected JdbcInsertMutation createJdbcInsert(SharedSessionContractImplementor session) {
 		final var insertDetails = tableMapping.getInsertDetails();
 		final var table = new MutatingTableReference( tableMapping );
-		final var combinedBindings = combine( valueBindings, keyBindings );
+		final var combinedBindings = getInsertBindings();
 		final var target = getMutationTarget();
 		final var tableInsert =
 				insertDetails != null && insertDetails.getCustomSql() != null
@@ -549,16 +534,28 @@ public class OptionalTableUpdateOperation implements SelfExecutingUpdateOperatio
 		return "OptionalTableUpdateOperation(" + tableMapping + ")";
 	}
 
+	protected List<ColumnValueBinding> getInsertBindings() {
+		final var insertBindings = new ArrayList<ColumnValueBinding>( valueBindings.size() + keyBindings.size() );
+		for ( var binding : valueBindings ) {
+			if ( binding.isAttributeInsertable() ) {
+				insertBindings.add( binding );
+			}
+		}
+		insertBindings.addAll( keyBindings );
+		return insertBindings;
+	}
+
 	private List<ColumnValueBinding> getUpdatableValueBindings() {
 		// when there is nothing to assign, the update still tells us whether the row exists
-		if ( !valueBindings.isEmpty() && !hasNonUpdatableBinding() ) {
+		if ( !valueBindings.isEmpty() && !needsSeparateUpdateBindings() ) {
 			return valueBindings;
 		}
 		else {
 			final List<ColumnValueBinding> updateBindings = arrayList( valueBindings.size() );
 			for ( var binding : valueBindings ) {
 				if ( binding.isAttributeUpdatable() ) {
-					updateBindings.add( binding );
+					updateBindings.add( binding instanceof ConditionalVersionAssignment version
+							? version.forUpdate( null ) : binding );
 				}
 			}
 			if ( updateBindings.isEmpty() ) {
@@ -571,9 +568,9 @@ public class OptionalTableUpdateOperation implements SelfExecutingUpdateOperatio
 		}
 	}
 
-	private boolean hasNonUpdatableBinding() {
+	private boolean needsSeparateUpdateBindings() {
 		for ( var binding : valueBindings ) {
-			if ( !binding.isAttributeUpdatable() ) {
+			if ( !binding.isAttributeUpdatable() || binding instanceof ConditionalVersionAssignment ) {
 				return true;
 			}
 		}
@@ -627,11 +624,10 @@ public class OptionalTableUpdateOperation implements SelfExecutingUpdateOperatio
 		);
 	}
 
-	private void bindUpdateValues(
+	private void bindStatementValues(
 			JdbcValueBindings jdbcValueBindings,
 			PreparedStatement statement,
-			List<ColumnValueParameter> updateParameters,
-			String sql,
+			JdbcMutationOperation operation,
 			SharedSessionContractImplementor session) {
 		final var bindingGroup =
 				jdbcValueBindings.getBindingGroup( tableMapping.getTableName() );
@@ -639,20 +635,21 @@ public class OptionalTableUpdateOperation implements SelfExecutingUpdateOperatio
 			throw new IllegalStateException(
 					String.format(
 							Locale.ROOT,
-							"No value bindings for table on update : %s",
+							"No value bindings for table mutation : %s",
 							tableMapping.getTableName()
 					)
 			);
 		}
 
 		int jdbcBindingPosition = 1;
-		for ( var parameter : updateParameters ) {
+		for ( var binder : operation.getParameterBinders() ) {
+			final var parameter = (ColumnValueParameter) binder;
 			final var binding = findBinding( bindingGroup, parameter );
 			if ( binding == null ) {
 				throw new IllegalStateException(
 						String.format(
 								Locale.ROOT,
-								"Missing value binding for update : %s.%s (%s)",
+								"Missing value binding for mutation : %s.%s (%s)",
 								tableMapping.getTableName(),
 								parameter.getColumnReference().getColumnExpression(),
 								parameter.getUsage()
@@ -666,8 +663,8 @@ public class OptionalTableUpdateOperation implements SelfExecutingUpdateOperatio
 			catch (SQLException e) {
 				throw session.getJdbcServices().getSqlExceptionHelper().convert(
 						e,
-						"Unable to bind parameter for upsert update",
-						sql
+						"Unable to bind parameter for upsert",
+						operation.getSqlString()
 				);
 			}
 		}

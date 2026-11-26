@@ -1,5 +1,6 @@
 package org.hibernate.id.insert;
 
+import org.hibernate.StaleObjectStateException;
 import org.hibernate.action.queue.spi.plan.FlushOperation;
 import org.hibernate.engine.jdbc.mutation.JdbcValueBindings;
 import org.hibernate.engine.jdbc.mutation.group.PreparedStatementDetails;
@@ -85,7 +86,10 @@ public abstract class AbstractReturningDelegate
 		session.getJdbcSessionContext().getStatementObserver().performingSql( sql, -1 );
 		try {
 			valueBindings.beforeStatement( statementDetails );
-			return executeAndExtractReturning( sql, statementDetails.getStatement(), session );
+			return executeAndExtractReturning( sql, statementDetails.getStatement(), session,
+					getTiming() == EventType.UPDATE ? () -> {
+						throw new StaleObjectStateException( persister.getEntityName(), persister.getIdentifier( entity, session ) );
+					} : null );
 		}
 		finally {
 			if ( statementDetails.getStatement() != null ) {
@@ -124,6 +128,11 @@ public abstract class AbstractReturningDelegate
 			String sql,
 			PreparedStatement preparedStatement,
 			SharedSessionContractImplementor session);
+
+	protected GeneratedValues executeAndExtractReturning(
+			String sql, PreparedStatement statement, SharedSessionContractImplementor session, Runnable emptyResultHandler) {
+		return executeAndExtractReturning( sql, statement, session );
+	}
 
 	/// Graph mutations may use their operation-specific result checker while extracting values.
 	protected GeneratedValues executeAndExtractReturning(
