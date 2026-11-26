@@ -147,14 +147,6 @@ The table name defaults to the name of the corresponding current table with the 
 If a database already contains subclass revisions in the root history table, move those revisions to the corresponding subclass history tables before upgrading.
 The old history table does not store a discriminator, so identifying the concrete type of those revisions may require application data.
 
-[[temporal-history-primary-key]]
-=== Primary keys of temporal entity history tables
-
-For the `HISTORY_TABLE` strategy, the starting changeset identifies a revision of an entity.
-Several revisions can share the same `@Version` value when an attribute is excluded from optimistic locking.
-When upgrading an existing versioned entity history table, replace the version column in its primary key with the starting changeset column (by default, `effective`).
-Keep the identifier and any partition key columns in the primary key, and retain the version column as a regular column.
-
 [[on-delete-on-entity-class]]
 === `@OnDelete` on an entity class which is not a `JOINED` subclass
 

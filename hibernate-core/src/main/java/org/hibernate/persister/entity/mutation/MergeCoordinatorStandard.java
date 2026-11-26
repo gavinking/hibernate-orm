@@ -4,13 +4,10 @@ import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 
 import org.hibernate.engine.internal.FilteredAssociationMutation;
-import org.hibernate.generator.OnExecutionGenerator;
-import org.hibernate.generator.EventType;
-import org.hibernate.generator.values.GeneratedValues;
-import org.hibernate.generator.values.internal.GeneratedValuesImpl;
-import org.hibernate.StaleObjectStateException;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
+import org.hibernate.generator.EventType;
+import org.hibernate.generator.OnExecutionGenerator;
 import org.hibernate.metamodel.mapping.AttributeMapping;
 import org.hibernate.metamodel.mapping.DiscriminatorValue;
 import org.hibernate.metamodel.mapping.SelectableMapping;
@@ -34,29 +31,12 @@ public class MergeCoordinatorStandard extends UpdateCoordinatorStandard {
 	}
 
 	@Override
-	public @Nullable GeneratedValues update(
-			@Nonnull Object entity, @Nonnull Object id, @Nullable Object rowId, @Nonnull Object[] values,
-			@Nullable Object oldVersion, @Nullable Object[] oldValues, @Nullable int[] dirtyIndexes,
-			boolean hasDirtyCollection, @Nonnull SharedSessionContractImplementor session) {
-		final var result = super.update( entity, id, rowId, values, oldVersion, oldValues, dirtyIndexes, hasDirtyCollection, session );
-		final var persister = entityPersister();
-		if ( result == null && oldValues == null && dirtyIndexes == null
-				&& supportsDatabaseDirtinessCheck( persister.getVersionMapping() ) ) {
-			// An emulated upsert executes its own statements and cannot use the returning delegate.
-			final Object version = persister.getCurrentVersion( id, session );
-			if ( version == null ) {
-				throw new StaleObjectStateException( persister.getEntityName(), id );
-			}
-			final var generated = new GeneratedValuesImpl( 1 );
-			generated.addGeneratedValue( persister.getVersionMapping(), version );
-			return generated;
-		}
-		return result;
-	}
-
-	@Override
 	protected TableMutationBuilder<?> createTableUpdateBuilder(@Nonnull EntityTableMapping tableMapping) {
-		return newTableUpdateBuilder( tableMapping );
+		// Database-checked versions use a conditional UPDATE which returns the resolved version.
+		// For other generators the identifier table still needs a MERGE to insert a missing row.
+		return tableMapping.isIdentifierTable() && supportsDatabaseDirtinessCheck( entityPersister().getVersionMapping() )
+				? super.createTableUpdateBuilder( tableMapping )
+				: newTableUpdateBuilder( tableMapping );
 	}
 
 	@Nonnull

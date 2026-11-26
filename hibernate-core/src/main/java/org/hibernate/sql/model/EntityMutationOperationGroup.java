@@ -40,10 +40,7 @@ public interface EntityMutationOperationGroup extends MutationOperationGroup {
 			// Generated values belong to a JDBC mutation of the identifier table.
 			return null;
 		}
-		if ( operation instanceof MergeOperation merge ) {
-			if ( merge.hasConditionalVersion() ) {
-				return delegate;
-			}
+		if ( operation instanceof MergeOperation ) {
 			// A native upsert can use JDBC generated keys to return its optimistic lock value.
 			final var version = target.getTargetPart().getVersionMapping();
 			final var generator = version == null ? null : version.getVersionAttribute().getGenerator();

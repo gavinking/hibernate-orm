@@ -216,7 +216,7 @@ public class SqlAstTranslatorWithUpsert<T extends JdbcOperation> extends Abstrac
 					}
 					binding.getColumnReference().appendColumnForWrite( this, "t" );
 					appendSql( "=" );
-					renderMergeUpdateValue( binding, "t", "s" );
+					binding.getColumnReference().appendColumnForWrite( this, "s" );
 				}
 			}
 			renderMatchedWhere( optimisticLockBindings );

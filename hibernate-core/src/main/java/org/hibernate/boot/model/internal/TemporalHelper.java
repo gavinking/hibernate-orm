@@ -264,8 +264,15 @@ public class TemporalHelper {
 			}
 		}
 		if ( primaryKey.getColumnSpan() > 0 ) {
-			// A change to an attribute excluded from optimistic locking still starts a revision.
-			primaryKey.addColumn( startingColumn );
+			if ( entity.isVersioned() ) {
+				final var versionProperty = entity.getVersion();
+				if ( versionProperty != null ) {
+					addColumnsByName( primaryKey, historyTable, versionProperty.getValue().getColumns() );
+				}
+			}
+			else {
+				primaryKey.addColumn( startingColumn );
+			}
 			historyTable.setPrimaryKey( primaryKey );
 		}
 	}

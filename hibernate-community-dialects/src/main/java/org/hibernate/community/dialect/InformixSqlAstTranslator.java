@@ -468,7 +468,7 @@ public class InformixSqlAstTranslator<T extends JdbcOperation> extends SqlAstTra
 					appendSql( separatorChar );
 					binding.getColumnReference().appendColumnForWrite( this, null );
 					appendSql( '=' );
-					renderMergeUpdateValue( binding, "t", "s" );
+					binding.getColumnReference().appendColumnForWrite( this, "s" );
 					separatorChar = COMMA_SEPARATOR_CHAR;
 				}
 			}

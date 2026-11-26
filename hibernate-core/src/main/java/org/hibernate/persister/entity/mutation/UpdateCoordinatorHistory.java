@@ -99,12 +99,6 @@ public class UpdateCoordinatorHistory extends AbstractTemporalUpdateCoordinator 
 				hasDirtyCollection,
 				session
 		);
-		if ( generatedValues != null && entityPersister().isVersioned() ) {
-			final Object version = generatedValues.getGeneratedValue( entityPersister().getVersionMapping() );
-			if ( version != null ) {
-				values[entityPersister().getVersionPropertyIndex()] = version;
-			}
-		}
 		final boolean currentRevision = isRevisionFromCurrentTransaction( entityPersister(), id, session );
 		if ( currentRevision || entityPersister().excludedFromTemporalVersioning( dirtyAttributeIndexes, hasDirtyCollection ) ) {
 			performHistoryUpdate(

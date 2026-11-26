@@ -3,9 +3,6 @@ package org.hibernate.dialect.sql.ast.spi;
 import java.util.List;
 
 import org.hibernate.SPI;
-import org.hibernate.id.insert.InsertReturningDelegate;
-import org.hibernate.persister.entity.mutation.EntityMutationTarget;
-
 import org.hibernate.internal.util.StringHelper;
 import org.hibernate.jdbc.Expectation;
 import org.hibernate.sql.ast.spi.Statement;
@@ -40,22 +37,13 @@ public abstract class SqlAstTranslatorWithMerge<T extends JdbcOperation> extends
 	/// wrapped in a [MergeOperation]. Override a protected rendering callback to
 	/// customize the SQL; the operation lifecycle itself is invariant.
 	public final MergeOperation createMergeOperation(OptionalTableUpdate optionalTableUpdate) {
-		final boolean conditionalVersion = optionalTableUpdate.hasConditionalVersionAssignment();
-		if ( conditionalVersion && optionalTableUpdate.getMutationTarget() instanceof EntityMutationTarget entity
-				&& entity.getTargetPart().getEntityPersister().getUpdateDelegate() instanceof InsertReturningDelegate returning ) {
-			renderReturningMutation( MutationKind.UPDATE, ReturningMutationSource.MODEL, returning.getGeneratedColumns(),
-					() -> renderMergeStatement( optionalTableUpdate ) );
-		}
-		else {
-			renderMergeStatement( optionalTableUpdate );
-		}
+		renderMergeStatement( optionalTableUpdate );
 		return new MergeOperation(
 				optionalTableUpdate.getMutatingTable().getTableMapping(),
 				optionalTableUpdate.getMutationTarget(),
 				getSql(),
 				expectation( optionalTableUpdate ),
-				getParameterBinders(),
-				conditionalVersion
+				getParameterBinders()
 		);
 	}
 
@@ -278,7 +266,7 @@ public abstract class SqlAstTranslatorWithMerge<T extends JdbcOperation> extends
 					appendSql( separator );
 					binding.getColumnReference().appendColumnForWrite( this, null );
 					appendSql( "=" );
-					renderMergeUpdateValue( binding, "t", "s" );
+					binding.getColumnReference().appendColumnForWrite( this, "s" );
 					separator = ',';
 				}
 			}

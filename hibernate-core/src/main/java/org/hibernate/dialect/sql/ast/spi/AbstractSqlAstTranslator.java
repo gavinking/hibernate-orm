@@ -208,7 +208,6 @@ import org.hibernate.sql.spi.mutation.MutationTarget;
 import org.hibernate.sql.spi.ParameterMarkerStrategy;
 import org.hibernate.sql.spi.SqlAppender;
 import org.hibernate.sql.ast.spi.model.ColumnValueBinding;
-import org.hibernate.sql.ast.spi.model.ConditionalVersionAssignment;
 import org.hibernate.sql.ast.spi.model.TenantIdColumnValueBinding;
 import org.hibernate.sql.ast.spi.model.ColumnValueParameter;
 import org.hibernate.sql.ast.spi.model.ColumnWriteFragment;
@@ -1110,15 +1109,6 @@ public abstract class AbstractSqlAstTranslator<T extends JdbcOperation> implemen
 		}
 		if ( limit.getMaxRows() != null ) {
 			setLimitParameter( JdbcParameterFactory.queryLimit( sessionFactory.getTypeConfiguration() ) );
-		}
-	}
-
-	protected final void renderMergeUpdateValue(ColumnValueBinding binding, String targetAlias, String sourceAlias) {
-		if ( binding instanceof ConditionalVersionAssignment version ) {
-			version.forUpdate( targetAlias ).getValueExpression().accept( this );
-		}
-		else {
-			binding.getColumnReference().appendColumnForWrite( this, sourceAlias );
 		}
 	}
 
@@ -2655,7 +2645,7 @@ public abstract class AbstractSqlAstTranslator<T extends JdbcOperation> implemen
 		return StandardReturningRenderingSupport.STANDARD;
 	}
 
-	protected final void renderReturningMutation(
+	private void renderReturningMutation(
 			MutationKind mutationKind,
 			ReturningMutationSource source,
 			List<ColumnReference> returningColumns,
