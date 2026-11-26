@@ -607,6 +607,19 @@ public class TemporalGeneratedPropertyHistoryTest {
 	}
 
 	@Test
+	void multipleGeneratedColumnsReadTheLiveRowOnce(SessionFactoryScope scope) {
+		var observer = scope.getCollectingStatementObserver();
+		scope.inTransaction( session -> {
+			observer.clear();
+			session.persist( new Item() );
+			session.flush();
+			observer.assertQueries().filteredOn( sql -> sql.contains( "insert into gen_item_history " ) )
+					.singleElement().asString().containsOnlyOnce( " from gen_item " )
+					.contains( ") select " ).doesNotContain( "(select " );
+		} );
+	}
+
+	@Test
 	void copyingGeneratedValuesUsesOnlyTheHistoryDml(SessionFactoryScope scope) {
 		var observer = scope.getCollectingStatementObserver();
 		scope.inTransaction( session -> {

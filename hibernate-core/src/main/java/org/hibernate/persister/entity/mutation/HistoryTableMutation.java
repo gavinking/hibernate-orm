@@ -23,7 +23,6 @@ import org.hibernate.sql.spi.mutation.TableMapping;
 
 import static org.hibernate.bytecode.enhance.spi.LazyPropertyInitializer.UNFETCHED_PROPERTY;
 import static org.hibernate.engine.jdbc.mutation.ParameterUsage.RESTRICT;
-import static org.hibernate.engine.jdbc.mutation.ParameterUsage.SET;
 import static org.hibernate.internal.util.collections.ArrayHelper.toIntArray;
 import static org.hibernate.persister.entity.mutation.AbstractMutationCoordinator.addColumnFromLiveTable;
 
@@ -87,15 +86,19 @@ public final class HistoryTableMutation {
 			}
 		}
 		for ( var column : generatedColumns.values() ) {
-			addColumnFromLiveTable( builder, source, column, SET, persister.getFactory().getJdbcServices().getDialect() );
+			builder.addColumnAssignment( column, column.getSelectionExpression() );
 		}
 		final var target = builder.getMutatingTable();
 		final var start = new ColumnReference( target, temporal.getStartingColumnMapping() );
 		final var end = new ColumnReference( target, temporal.getEndingColumnMapping() );
 		builder.addColumnAssignment( temporal.createStartingValueBinding( start ) );
 		builder.addColumnAssignment( temporal.createNullEndingValueBinding( end ) );
+		if ( readsLiveTable() ) {
+			source.getKeyMapping().forEachKeyColumn( (i, key) -> builder.addColumnAssignment( key, key.getColumnName() ) );
+			return builder.buildInsertSelect( source );
+		}
 		source.getKeyMapping().forEachKeyColumn( builder::addColumnAssignment );
-		return builder.buildMutation( readsLiveTable() );
+		return builder.buildMutation();
 	}
 
 	public void bindInsert(Object id, Object[] state, boolean[] inclusions,
