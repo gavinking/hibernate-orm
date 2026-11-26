@@ -190,10 +190,11 @@ public class InsertDecomposer extends AbstractDecomposer<AbstractEntityInsertAct
 							state,
 							cacheInsert
 					),
+					identifierTableMutation,
 					additionalOperations::add
 			);
 
-			emitTailOperations( previousOperation, identifierTableMutation, additionalOperations,
+			emitTailOperations( previousOperation, additionalOperations,
 					postInsertHandling, operationConsumer );
 		}
 	}
@@ -210,7 +211,6 @@ public class InsertDecomposer extends AbstractDecomposer<AbstractEntityInsertAct
 
 	private void emitTailOperations(
 			FlushOperation previousOperation,
-			FlushOperation identifierTableMutation,
 			List<FlushOperation> additionalOperations,
 			PostExecutionCallback postExecutionCallback,
 			Consumer<FlushOperation> operationConsumer) {
@@ -229,7 +229,6 @@ public class InsertDecomposer extends AbstractDecomposer<AbstractEntityInsertAct
 			operationConsumer.accept( additionalOperations.get( i ) );
 		}
 		final var lastOperation = additionalOperations.get( additionalOperations.size() - 1 );
-		mutationPlanContributor.orderAfterIdentifierTableMutation( lastOperation, identifierTableMutation );
 		lastOperation.setPostExecutionCallback( postExecutionCallback );
 		operationConsumer.accept( lastOperation );
 	}

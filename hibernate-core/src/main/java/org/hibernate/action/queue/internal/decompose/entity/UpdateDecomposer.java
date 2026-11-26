@@ -300,8 +300,8 @@ public class UpdateDecomposer extends AbstractDecomposer<EntityUpdateAction>
 			);
 			if ( forceIncrementOperation != null ) {
 				final List<FlushOperation> additionalOperations = new ArrayList<>();
-				mutationPlanContributor.contributeAdditionalUpdate( context, additionalOperations::add );
-				emitTailOperations( forceIncrementOperation, forceIncrementOperation, additionalOperations,
+				mutationPlanContributor.contributeAdditionalUpdate( context, forceIncrementOperation, additionalOperations::add );
+				emitTailOperations( forceIncrementOperation, additionalOperations,
 						postUpdateHandling, ordinalBase, operationConsumer );
 				return;
 			}
@@ -437,8 +437,8 @@ public class UpdateDecomposer extends AbstractDecomposer<EntityUpdateAction>
 		}
 
 		final List<FlushOperation> additionalOperations = new ArrayList<>();
-		mutationPlanContributor.contributeAdditionalUpdate( context, additionalOperations::add );
-		emitTailOperations( previousOperation, identifierTableMutation, additionalOperations,
+		mutationPlanContributor.contributeAdditionalUpdate( context, identifierTableMutation, additionalOperations::add );
+		emitTailOperations( previousOperation, additionalOperations,
 				postUpdateHandling, ordinalBase, operationConsumer );
 	}
 
@@ -503,7 +503,6 @@ public class UpdateDecomposer extends AbstractDecomposer<EntityUpdateAction>
 
 	private void emitTailOperations(
 			FlushOperation previousOperation,
-			FlushOperation identifierTableMutation,
 			List<FlushOperation> additionalOperations,
 			PostExecutionCallback postExecutionCallback,
 			int ordinalBase,
@@ -530,7 +529,6 @@ public class UpdateDecomposer extends AbstractDecomposer<EntityUpdateAction>
 			operationConsumer.accept( additionalOperations.get( i ) );
 		}
 		final var lastOperation = additionalOperations.get( additionalOperations.size() - 1 );
-		mutationPlanContributor.orderAfterIdentifierTableMutation( lastOperation, identifierTableMutation );
 		lastOperation.setPostExecutionCallback( postExecutionCallback );
 		operationConsumer.accept( lastOperation );
 	}

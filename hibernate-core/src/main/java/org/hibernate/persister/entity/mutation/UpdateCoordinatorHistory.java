@@ -204,9 +204,9 @@ public class UpdateCoordinatorHistory extends AbstractTemporalUpdateCoordinator 
 		}
 
 		final var tableUpdateBuilder = new TableUpdateBuilderStandard<>( entityPersister(), historyTableMapping, factory() );
-		final int[] bindableAttributeIndexes = historyMutation.addUpdateAssignments(
+		final var assignments = historyMutation.addUpdateAssignments(
 				tableUpdateBuilder, values, dirtyAttributeIndexes, currentRevision );
-		if ( bindableAttributeIndexes != null ) {
+		if ( assignments != null ) {
 			applyKeyRestriction( null, entityPersister(), tableUpdateBuilder, historyTableMapping );
 			tableUpdateBuilder.addNullRestriction( temporalMapping.getEndingColumnMapping() );
 			applyPartitionKeyRestriction( tableUpdateBuilder, identifierTableMapping.getTableName(),
@@ -215,7 +215,7 @@ public class UpdateCoordinatorHistory extends AbstractTemporalUpdateCoordinator 
 
 			return new HistoryUpdateDetails(
 					createMutationOperationGroup( tableUpdateBuilder ),
-					bindableAttributeIndexes,
+					assignments.bindableIndexes(),
 					entityPersister().optimisticLockStyle().isVersion()
 							&& entityPersister().getVersionMapping() != null
 			);

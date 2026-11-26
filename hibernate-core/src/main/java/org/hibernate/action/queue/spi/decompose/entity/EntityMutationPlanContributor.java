@@ -3,6 +3,8 @@ package org.hibernate.action.queue.spi.decompose.entity;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import jakarta.annotation.Nullable;
+
 import org.hibernate.Incubating;
 import org.hibernate.Internal;
 import org.hibernate.action.internal.AbstractEntityInsertAction;
@@ -93,6 +95,12 @@ public interface EntityMutationPlanContributor {
 			Consumer<FlushOperation> operationConsumer) {
 	}
 
+	/// Supplies the live identifier-table insert for contributions which read that row.
+	default void contributeAdditionalInsert(InsertContext context, @Nullable FlushOperation identifierTableMutation,
+			Consumer<FlushOperation> operationConsumer) {
+		contributeAdditionalInsert( context, operationConsumer );
+	}
+
 	/// Optionally contributes operations to run after the standard entity update
 	/// operations and before update post-execution handling.
 	default void contributeAdditionalUpdate(
@@ -100,8 +108,10 @@ public interface EntityMutationPlanContributor {
 			Consumer<FlushOperation> operationConsumer) {
 	}
 
-	/// Records an execution dependency when the additional insert or update reads the live row.
-	default void orderAfterIdentifierTableMutation(FlushOperation additionalOperation, FlushOperation identifierTableMutation) {
+	/// Supplies the live identifier-table update for contributions which read that row.
+	default void contributeAdditionalUpdate(UpdateContext context, @Nullable FlushOperation identifierTableMutation,
+			Consumer<FlushOperation> operationConsumer) {
+		contributeAdditionalUpdate( context, operationConsumer );
 	}
 
 	/// Optionally contributes operations to run after the standard entity delete

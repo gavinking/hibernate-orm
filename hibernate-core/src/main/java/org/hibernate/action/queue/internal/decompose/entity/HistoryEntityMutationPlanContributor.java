@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
+import jakarta.annotation.Nullable;
+
 import org.hibernate.action.queue.spi.MutationKind;
 import org.hibernate.action.queue.spi.bind.BindPlan;
 import org.hibernate.action.queue.spi.bind.Checkers;
@@ -33,6 +35,7 @@ import org.hibernate.sql.spi.mutation.TableMapping.MutationDetails;
 import org.hibernate.sql.ast.spi.model.LogicalTableUpdate;
 import org.hibernate.sql.ast.spi.model.MutatingTableReference;
 import org.hibernate.sql.ast.spi.model.TableInsert;
+import org.hibernate.sql.ast.spi.model.TableInsertSelect;
 import org.hibernate.sql.ast.spi.model.builder.RestrictedTableMutationBuilder;
 import org.hibernate.sql.ast.spi.model.builder.TableUpdateBuilderStandard;
 
@@ -83,16 +86,14 @@ public class HistoryEntityMutationPlanContributor implements EntityMutationPlanC
 	}
 
 	@Override
-	public void orderAfterIdentifierTableMutation(FlushOperation historyOperation, FlushOperation identifierTableMutation) {
-		if ( historyMutation.readsLiveTable() ) {
-			// Regrouping by statement must preserve the live values read by the history mutation.
-			historyOperation.addExecutionPrerequisite( identifierTableMutation );
-		}
+	public void contributeAdditionalInsert(InsertContext context, Consumer<FlushOperation> operations) {
+		contributeAdditionalInsert( context, null, operations );
 	}
 
 	@Override
 	public void contributeAdditionalInsert(
 			InsertContext context,
+			@Nullable FlushOperation identifierTableMutation,
 			Consumer<FlushOperation> operationConsumer) {
 		final boolean[] inclusions = entityPersister.isDynamicInsert()
 				? getPropertiesToInsert( context.state() )
@@ -101,31 +102,28 @@ public class HistoryEntityMutationPlanContributor implements EntityMutationPlanC
 				? historyMutation.createInsert( inclusions )
 				: staticHistoryInsert;
 
-		operationConsumer.accept( new FlushOperation(
-				historyTableDescriptor,
-				MutationKind.INSERT,
-				insert.createMutationOperation( null, sessionFactory ),
-				new HistoryInsertBindPlan(
-						context.entity(),
-						context.identifier(),
-						context.state(),
-						inclusions
-				),
-				context.ordinalBase() * 1_000 + 500,
-				"EntityInsertAction(" + entityPersister.getEntityName() + "#history)"
-		) );
+		operationConsumer.accept( createHistoryInsertOperation(
+				insert, new HistoryInsertBindPlan( context.entity(), context.identifier(), context.state(), inclusions ),
+				context.ordinalBase() * 1_000 + 500, "EntityInsertAction(" + entityPersister.getEntityName() + "#history)",
+				null, identifierTableMutation ) );
+	}
+
+	@Override
+	public void contributeAdditionalUpdate(UpdateContext context, Consumer<FlushOperation> operations) {
+		contributeAdditionalUpdate( context, null, operations );
 	}
 
 	@Override
 	public void contributeAdditionalUpdate(
 			UpdateContext context,
+			@Nullable FlushOperation identifierTableMutation,
 			Consumer<FlushOperation> operationConsumer) {
 		if ( context.isBeingDeleted() ) {
 			// Nullifying current-table foreign keys before deletion creates no historical revision.
 			return;
 		}
 		if ( !context.requiresNewTemporalVersion() ) {
-			contributeHistoryInPlaceUpdate( context, operationConsumer );
+			contributeHistoryInPlaceUpdate( context, identifierTableMutation, operationConsumer );
 		}
 		else {
 			final var end = createHistoryEndOperation(
@@ -138,9 +136,12 @@ public class HistoryEntityMutationPlanContributor implements EntityMutationPlanC
 					context.session()
 			);
 			initializeStateForRevisionInsert( context, historyTableDescriptor, true );
-			final var insert = createHistoryInsertOperation( context );
+			final var insert = createHistoryInsertOperation(
+					staticHistoryInsert, new HistoryInsertBindPlan( context.entity(), context.identifier(), context.state(),
+							entityPersister.getPropertyInsertability() ),
+					context.ordinalBase() * 1_000 + 501,
+					"EntityUpdateAction(" + entityPersister.getEntityName() + "#history-insert)", end, identifierTableMutation );
 			context.recordRevisionAfterInsert( insert );
-			insert.addExecutionPrerequisite( end );
 			operationConsumer.accept( end );
 			operationConsumer.accept( insert );
 		}
@@ -166,6 +167,7 @@ public class HistoryEntityMutationPlanContributor implements EntityMutationPlanC
 
 	private void contributeHistoryInPlaceUpdate(
 			UpdateContext context,
+			@Nullable FlushOperation identifierTableMutation,
 			Consumer<FlushOperation> operationConsumer) {
 		final int[] dirtyFields = context.action().getDirtyFields();
 		final boolean revisionFromCurrentTransaction = context.updatesRevisionFromCurrentTransaction();
@@ -179,7 +181,7 @@ public class HistoryEntityMutationPlanContributor implements EntityMutationPlanC
 					partitionKeys
 			);
 			if ( details != null ) {
-				operationConsumer.accept( new FlushOperation(
+				final var update = new FlushOperation(
 						historyTableDescriptor,
 						MutationKind.UPDATE,
 						details.operation.createMutationOperation( null, sessionFactory ),
@@ -190,12 +192,16 @@ public class HistoryEntityMutationPlanContributor implements EntityMutationPlanC
 								loadedState,
 								partitionKeys,
 								context.previousVersion(),
-								details.attributeIndexes,
+								details.assignments.bindableIndexes(),
 								details.applyVersionRestriction
 						),
 						context.ordinalBase() * 1_000 + 500,
 						"EntityUpdateAction(" + entityPersister.getEntityName() + "#history-update)"
-				) );
+				);
+				if ( details.assignments.readsLiveTable() ) {
+					update.addExecutionPrerequisite( identifierTableMutation );
+				}
+				operationConsumer.accept( update );
 			}
 		}
 	}
@@ -233,16 +239,16 @@ public class HistoryEntityMutationPlanContributor implements EntityMutationPlanC
 		);
 	}
 
-	private FlushOperation createHistoryInsertOperation(UpdateContext context) {
-		final var insertability = entityPersister.getPropertyInsertability();
-		return new FlushOperation(
-				historyTableDescriptor,
-				MutationKind.INSERT,
-				staticHistoryInsert.createMutationOperation( null, sessionFactory ),
-				new HistoryInsertBindPlan( context.entity(), context.identifier(), context.state(), insertability ),
-				context.ordinalBase() * 1_000 + 501,
-				"EntityUpdateAction(" + entityPersister.getEntityName() + "#history-insert)"
-		);
+	private FlushOperation createHistoryInsertOperation(
+			TableInsert insert, HistoryInsertBindPlan bindPlan, int ordinal, String description,
+			@Nullable FlushOperation previousRevisionEnd, @Nullable FlushOperation identifierTableMutation) {
+		final var operation = new FlushOperation( historyTableDescriptor, MutationKind.INSERT,
+				insert.createMutationOperation( null, sessionFactory ), bindPlan, ordinal, description );
+		operation.addExecutionPrerequisite( previousRevisionEnd );
+		if ( insert instanceof TableInsertSelect ) {
+			operation.addExecutionPrerequisite( identifierTableMutation );
+		}
+		return operation;
 	}
 
 	private EntityTableDescriptor createHistoryTableDescriptor() {
@@ -294,9 +300,9 @@ public class HistoryEntityMutationPlanContributor implements EntityMutationPlanC
 				new MutatingTableReference( historyTableMapping ),
 				sessionFactory
 		);
-		final int[] bindableAttributeIndexes = historyMutation.addUpdateAssignments( updateBuilder,
+		final var assignments = historyMutation.addUpdateAssignments( updateBuilder,
 				state, dirtyAttributeIndexes, revisionFromCurrentTransaction );
-		if ( bindableAttributeIndexes == null ) {
+		if ( assignments == null ) {
 			return null;
 		}
 
@@ -310,7 +316,7 @@ public class HistoryEntityMutationPlanContributor implements EntityMutationPlanC
 
 		return new HistoryInPlaceUpdateDetails(
 				updateBuilder.buildMutation(),
-				bindableAttributeIndexes,
+				assignments,
 				entityPersister.optimisticLockStyle() == OptimisticLockStyle.VERSION
 						&& entityPersister.getVersionMapping() != null
 		);
@@ -610,7 +616,7 @@ public class HistoryEntityMutationPlanContributor implements EntityMutationPlanC
 
 	private record HistoryInPlaceUpdateDetails(
 			LogicalTableUpdate<?> operation,
-			int[] attributeIndexes,
+			HistoryTableMutation.UpdateAssignments assignments,
 			boolean applyVersionRestriction) {
 	}
 }

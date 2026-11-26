@@ -62,7 +62,7 @@ public final class HistoryTableMutation {
 		return generator != null && generator.generatesSometimes();
 	}
 
-	public boolean readsLiveTable() {
+	private boolean readsLiveTable() {
 		return !generatedColumns.isEmpty();
 	}
 
@@ -116,8 +116,10 @@ public final class HistoryTableMutation {
 		}
 	}
 
-	/// Return the indexes that need JDBC bindings, or null if there are no assignments.
-	public @Nullable int[] addUpdateAssignments(
+	public record UpdateAssignments(int[] bindableIndexes, boolean readsLiveTable) {}
+
+	/// Returns null if the revision has no columns to update.
+	public @Nullable UpdateAssignments addUpdateAssignments(
 			TableUpdateBuilder<?> builder, Object[] state, @Nullable int[] dirtyIndexes, boolean currentRevision) {
 		final var updateability = persister.getPropertyUpdateability();
 		final boolean[] dirty = new boolean[updateability.length];
@@ -163,7 +165,7 @@ public final class HistoryTableMutation {
 			addColumnFromLiveTable( builder, source, generatedColumns.get( column ), RESTRICT,
 					persister.getFactory().getJdbcServices().getDialect() );
 		}
-		return builder.hasAssignmentBindings() ? toIntArray( bindable ) : null;
+		return builder.hasAssignmentBindings() ? new UpdateAssignments( toIntArray( bindable ), !copied.isEmpty() ) : null;
 	}
 
 	public void bindUpdate(Object[] state, int[] indexes, BiConsumer<Object, String> bindValue,
