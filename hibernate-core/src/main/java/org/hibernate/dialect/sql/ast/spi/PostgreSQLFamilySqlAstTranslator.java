@@ -117,8 +117,7 @@ public abstract class PostgreSQLFamilySqlAstTranslator<T extends JdbcOperation> 
 						appendSql( valueBinding.getColumnReference().getColumnExpression() );
 						appendSql( '=' );
 						if ( valueBinding.isAttributeInsertable() ) {
-							appendSql( "excluded." );
-							appendSql( valueBinding.getColumnReference().getColumnExpression() );
+							renderMergeUpdateValue( valueBinding, optionalTableUpdate.getTableName(), "excluded" );
 						}
 						else {
 							valueBinding.getValueExpression().accept( this );

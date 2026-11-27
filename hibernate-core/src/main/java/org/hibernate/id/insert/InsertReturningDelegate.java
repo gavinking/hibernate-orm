@@ -2,7 +2,6 @@ package org.hibernate.id.insert;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.engine.spi.SessionFactoryImplementor;
@@ -46,12 +45,7 @@ public class InsertReturningDelegate extends AbstractReturningDelegate {
 						.getGeneratedValuesSupport()
 						.supports( GeneratedValuesSupport.Capability.INSERT_RETURNING_ROW_ID ) );
 		tableReference = new MutatingTableReference( persister.getIdentifierTableMapping() );
-		final var resultBuilders = jdbcValuesMappingProducer.getResultBuilders();
-		generatedColumns = new ArrayList<>( resultBuilders.size() );
-		for ( var resultBuilder : resultBuilders ) {
-			generatedColumns.add( new ColumnReference( tableReference,
-					getActualGeneratedModelPart( resultBuilder.getModelPart() ) ) );
-		}
+		generatedColumns = determineGeneratedColumns();
 	}
 
 	public InsertReturningDelegate(
@@ -64,12 +58,17 @@ public class InsertReturningDelegate extends AbstractReturningDelegate {
 						.supports( GeneratedValuesSupport.Capability.INSERT_RETURNING_ROW_ID ),
 				generatedProperties );
 		tableReference = new MutatingTableReference( persister.getIdentifierTableMapping() );
-		final var resultBuilders = jdbcValuesMappingProducer.getResultBuilders();
-		generatedColumns = new ArrayList<>( resultBuilders.size() );
-		for ( var resultBuilder : resultBuilders ) {
-			generatedColumns.add( new ColumnReference( tableReference,
-					getActualGeneratedModelPart( resultBuilder.getModelPart() ) ) );
-		}
+		generatedColumns = determineGeneratedColumns();
+	}
+
+	private List<ColumnReference> determineGeneratedColumns() {
+		return jdbcValuesMappingProducer.getResultBuilders().stream()
+				.map( builder -> new ColumnReference( tableReference, getActualGeneratedModelPart( builder.getModelPart() ) ) )
+				.toList();
+	}
+
+	public List<ColumnReference> getGeneratedColumns() {
+		return generatedColumns;
 	}
 
 	@Override
@@ -113,7 +112,8 @@ public class InsertReturningDelegate extends AbstractReturningDelegate {
 				} : null );
 	}
 
-	private GeneratedValues executeAndExtractReturning(
+	@Override
+	protected GeneratedValues executeAndExtractReturning(
 			String sql,
 			PreparedStatement preparedStatement,
 			SharedSessionContractImplementor session,

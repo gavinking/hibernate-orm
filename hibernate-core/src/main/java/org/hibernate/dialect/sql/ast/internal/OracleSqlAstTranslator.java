@@ -748,13 +748,13 @@ public class OracleSqlAstTranslator<T extends JdbcOperation> extends SqlAstTrans
 						appendSql( "case when s." );
 						appendSql( MERGE_ACTION );
 						appendSql( "=1 then " );
-						binding.getColumnReference().appendColumnForWrite( this, "s" );
+						renderMergeUpdateValue( binding, "t", "s" );
 						appendSql( " else " );
 						binding.getColumnReference().appendColumnForWrite( this, null );
 						appendSql( " end" );
 					}
 					else {
-						binding.getColumnReference().appendColumnForWrite( this, "s" );
+						renderMergeUpdateValue( binding, "t", "s" );
 					}
 					separatorChar = COMMA_SEPARATOR_CHAR;
 				}
